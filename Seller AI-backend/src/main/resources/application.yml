@@ -1,0 +1,94 @@
+spring:
+  application:
+    name: marketplace-backend
+
+  datasource:
+    # connectionTimeZone=UTC matters more here than it did on Postgres:
+    # MySQL DATETIME carries no timezone at all, so the driver and
+    # hibernate.jdbc.time_zone below have to agree or Instants drift.
+    # allowPublicKeyRetrieval is needed for caching_sha2_password over
+    # a non-TLS local connection — drop both flags once you run with TLS.
+    url: ${DB_URL:jdbc:mysql://localhost:3306/marketplace?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=UTC}
+    username: ${DB_USER:DB}
+    password: ${DB_PASSWORD:Mysqldb#1}
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    # DEV ONLY. On any validation error — a failed migration, or an edited
+    # migration whose checksum no longer matches what was applied — wipe the
+    # schema and re-migrate from scratch. Safe while the schema is still moving
+    # and all data is reseeded on boot.
+    # DELETE BOTH LINES before this points at a database holding real data.
+    clean-disabled: ${FLYWAY_DEV_CLEAN:false}
+    clean-on-validation-error: ${FLYWAY_DEV_CLEAN:false}
+
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: always
+
+marketplace:
+  # Deterministic discount policy. The agent never decides these numbers.
+  discount:
+    base-pct: 2
+    per-round-bonus-pct: 2
+    max-rounds-counted: 3
+    offer-ttl-minutes: 30
+    # cap applied instead of the normal formula when this identity already
+    # redeemed an offer on the same laptop inside the look-back window
+    repeat-buyer-cap-pct: 1
+    repeat-look-back-days: 30
+
+  identity:
+    max-verifications-per-ip-per-hour: 5
+
+  webinfo:
+    cache-ttl-days: 7
+    # 'stub' returns canned, clearly-unverified copy so the service runs with
+    # no external dependency. Swap in a real provider bean to go live.
+    provider: stub
+
+  seed:
+    enabled: true
+
+  agent:
+    # 'scripted' runs the whole loop offline with a deterministic fake model —
+    # no API key, no network, no variance. Switch to 'gemini' once you have a key.
+    provider: ${AGENT_PROVIDER:scripted}
+    # Runaway guard: hard stop on tool calls inside one user turn.
+    max-tool-iterations: 6
+    gemini:
+      model: ${GEMINI_MODEL:gemini-3.6-flash}
+      api-key: ${GEMINI_API_KEY:}
+      temperature: 0.7
+      timeout-seconds: 45
+    groq:
+      # Confirm the model against https://console.groq.com/docs/models —
+      # model names go stale, as gemini-2.5-flash taught us.
+      model: ${GROQ_MODEL:openai/gpt-oss-120b}
+      api-key: ${GROQ_API_KEY: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}
+      temperature: 0.7
+      timeout-seconds: 45
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.marketplace: INFO
+
+    #AQ.Ab8RN6LwJcab55EVVOAdxNXmAILSi6HGvRvSXYplnXkfsYbSiQ

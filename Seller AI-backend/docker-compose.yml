@@ -1,0 +1,27 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: marketplace-mysql
+    environment:
+      MYSQL_DATABASE: marketplace
+      MYSQL_USER: marketplace
+      MYSQL_PASSWORD: marketplace
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      - marketplace-mysqldata:/var/lib/mysql
+    healthcheck:
+      # -h 127.0.0.1 forces TCP; "localhost" makes the client use a socket
+      # and report healthy before the network listener is actually up.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 30s
+
+volumes:
+  marketplace-mysqldata:

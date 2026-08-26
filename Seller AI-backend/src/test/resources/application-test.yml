@@ -1,0 +1,51 @@
+spring:
+  datasource:
+    # H2 in MySQL compatibility mode. Hibernate still detects H2Dialect from
+    # JDBC metadata, so this is parity of SQL syntax, not of behaviour — if a
+    # bug is dialect-specific, only a real MySQL will show it. Swap in
+    # Testcontainers (org.testcontainers:mysql) when that starts mattering.
+    url: jdbc:h2:mem:marketplace;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      # Schema comes from the entities here, not from V1__schema.sql, so the
+      # migration's MySQL-only syntax (BINARY(16), ENGINE=InnoDB) never runs
+      # in tests. That is also why the migration needs its own check against
+      # a real MySQL — see README.
+      ddl-auto: create-drop
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: false
+
+marketplace:
+  seed:
+    enabled: true
+  discount:
+    base-pct: 2
+    per-round-bonus-pct: 2
+    max-rounds-counted: 3
+    offer-ttl-minutes: 30
+    repeat-buyer-cap-pct: 1
+    repeat-look-back-days: 30
+  identity:
+    # Raised for the suite: MockMvc reports every request from 127.0.0.1, so the
+    # whole test class shares one bucket and unrelated tests start failing on a
+    # policy they are not testing. The limiter itself is covered properly in
+    # IdentityRateLimitTest, which overrides this and supplies its own IP.
+    max-verifications-per-ip-per-hour: 100
+  webinfo:
+    cache-ttl-days: 7
+    provider: stub
+  agent:
+    provider: scripted
+    max-tool-iterations: 6
+
+logging:
+  level:
+    com.marketplace: INFO
