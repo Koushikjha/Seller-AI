@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: optional:application-secrets.yml
   application:
     name: marketplace-backend
 
@@ -9,8 +11,8 @@ spring:
     # allowPublicKeyRetrieval is needed for caching_sha2_password over
     # a non-TLS local connection — drop both flags once you run with TLS.
     url: ${DB_URL:jdbc:mysql://localhost:3306/marketplace?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=UTC}
-    username: ${DB_USER:DB}
-    password: ${DB_PASSWORD:Mysqldb#1}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
 
   jpa:
     open-in-view: false
@@ -67,19 +69,19 @@ marketplace:
   agent:
     # 'scripted' runs the whole loop offline with a deterministic fake model —
     # no API key, no network, no variance. Switch to 'gemini' once you have a key.
-    provider: ${AGENT_PROVIDER:scripted}
+    provider: ${AGENT_PROVIDER}
     # Runaway guard: hard stop on tool calls inside one user turn.
     max-tool-iterations: 6
     gemini:
-      model: ${GEMINI_MODEL:gemini-3.6-flash}
+      model: ${GEMINI_MODEL}
       api-key: ${GEMINI_API_KEY:}
       temperature: 0.7
       timeout-seconds: 45
     groq:
       # Confirm the model against https://console.groq.com/docs/models —
       # model names go stale, as gemini-2.5-flash taught us.
-      model: ${GROQ_MODEL:openai/gpt-oss-120b}
-      api-key: ${GROQ_API_KEY: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}
+      model: ${GROQ_MODEL}
+      api-key: ${GROQ_API_KEY}
       temperature: 0.7
       timeout-seconds: 45
 
