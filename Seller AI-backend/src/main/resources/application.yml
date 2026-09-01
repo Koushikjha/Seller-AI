@@ -9,8 +9,8 @@ spring:
     # allowPublicKeyRetrieval is needed for caching_sha2_password over
     # a non-TLS local connection — drop both flags once you run with TLS.
     url: ${DB_URL:jdbc:mysql://localhost:3306/marketplace?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=UTC}
-    username: ${DB_USER:DB}
-    password: ${DB_PASSWORD:Mysqldb#1}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
 
   jpa:
     open-in-view: false
