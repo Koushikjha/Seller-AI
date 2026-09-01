@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Seller AI — Merchant</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.2/babel.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #f6f7f9; --panel: #fff; --ink: #14161a; --muted: #6b7280;
+            --line: #e4e7ec; --accent: #2f5bea; --accent-soft: #eef2ff;
+            --good: #087443; --good-soft: #e7f6ee; --bad: #b42318; --bad-soft: #fdeceb;
+            --warn: #9a4b00; --warn-soft: #fdf0e2;
+            --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+            --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: var(--sans); background: var(--bg); color: var(--ink); font-size: 14px; }
+
+        header { display: flex; align-items: center; gap: 14px; padding: 0 24px; height: 56px;
+            background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+        .logo { font-weight: 650; letter-spacing: -0.01em; }
+        .logo span { color: var(--accent); }
+        .sub { color: var(--muted); font-size: 13px; }
+        .spacer { flex: 1; }
+        a.nav { font-size: 13px; color: var(--accent); text-decoration: none; font-weight: 600; }
+        a.nav:hover { text-decoration: underline; }
+        button.ghost { font: inherit; font-size: 12px; font-weight: 600; background: none;
+            border: 1px solid var(--line); color: var(--muted); padding: 5px 11px;
+            border-radius: 7px; cursor: pointer; }
+        button.ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+        main { max-width: 1180px; margin: 0 auto; padding: 24px; }
+        h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em;
+            color: var(--muted); font-weight: 650; margin: 30px 0 12px; }
+        h2:first-child { margin-top: 0; }
+
+        .tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+        .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 14px 16px; }
+        .tile .k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+            color: var(--muted); font-weight: 650; }
+        .tile .v { font-size: 22px; font-weight: 680; margin-top: 5px; letter-spacing: -0.02em; }
+        .tile .n { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+        table { width: 100%; border-collapse: collapse; background: var(--panel);
+            border: 1px solid var(--line); border-radius: 11px; overflow: hidden; }
+        th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+            color: var(--muted); font-weight: 650; padding: 10px 13px; background: #fafbfc;
+            border-bottom: 1px solid var(--line); white-space: nowrap; }
+        td { padding: 10px 13px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .model { font-weight: 620; }
+        .brandline { font-size: 11px; color: var(--muted); }
+
+        input.cell { width: 68px; font: inherit; font-size: 13px; padding: 5px 8px;
+            border: 1px solid var(--line); border-radius: 7px; text-align: right;
+            font-variant-numeric: tabular-nums; }
+        input.cell:focus { outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(47,91,234,.12); }
+        input.cell.dirty { border-color: var(--warn); background: var(--warn-soft); }
+
+        .pill { font-size: 11px; font-weight: 650; padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
+        .pill.ok { background: var(--good-soft); color: var(--good); }
+        .pill.out { background: var(--bad-soft); color: var(--bad); }
+        .pill.fixed { background: #f0f1f3; color: var(--muted); }
+        .pill.stage { background: var(--accent-soft); color: var(--accent); }
+
+        .saved { font-size: 11px; color: var(--good); font-weight: 650; margin-left: 8px; }
+        .muted { color: var(--muted); }
+        .note { color: var(--muted); font-size: 12px; line-height: 1.55; margin: 8px 0 0; max-width: 720px; }
+        .err { background: var(--bad-soft); color: var(--bad); border: 1px solid #f5c6c2;
+            padding: 10px 13px; border-radius: 9px; font-size: 13px; }
+        .mono { font-family: var(--mono); font-size: 12px; }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+    const INR = n => "₹" + Number(n || 0).toLocaleString("en-IN",
+        { maximumFractionDigits: 0 });
+
+    async function api(path, options) {
+        const res = await fetch(path, options);
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error?.message || "request failed");
+        return json.data;
+    }
+
+    function Tile({ k, v, n }) {
+        return (
+            <div className="tile">
+                <div className="k">{k}</div>
+                <div className="v">{v}</div>
+                {n && <div className="n">{n}</div>}
+            </div>
+        );
+    }
+
+    /** Stock and discount ceiling are the two levers the merchant actually pulls. */
+    function InventoryRow({ l, onSaved }) {
+        const [stock, setStock] = useState(String(l.stockQty));
+        const [disc, setDisc] = useState(String(Number(l.maxDiscountPct)));
+        const [flash, setFlash] = useState("");
+
+        const stockDirty = String(l.stockQty) !== stock;
+        const discDirty = String(Number(l.maxDiscountPct)) !== String(Number(disc || 0));
+
+        async function commit(kind) {
+            try {
+                if (kind === "stock") {
+                    await api(`/laptops/${l.id}/stock`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ stockQty: Number(stock) }),
+                    });
+                } else {
+                    await api(`/laptops/${l.id}/discount`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ maxDiscountPct: Number(disc) }),
+                    });
+                }
+                setFlash("saved");
+                setTimeout(() => setFlash(""), 1400);
+                onSaved();
+            } catch (e) {
+                setFlash("failed");
+            }
+        }
+
+        return (
+            <tr>
+                <td>
+                    <div className="model">{l.modelName}</div>
+                    <div className="brandline">
+                        {l.subBrand.brandName} · {l.subBrand.name} · {l.subBrand.segment}
+                    </div>
+                </td>
+                <td className="mono muted">{l.cpu.name}</td>
+                <td className="mono muted">{l.gpu ? l.gpu.name : "Integrated"}</td>
+                <td className="num">{INR(l.basePrice)}</td>
+                <td className="num">
+                    <input
+                        className={"cell" + (stockDirty ? " dirty" : "")}
+                        value={stock}
+                        onChange={e => setStock(e.target.value.replace(/\D/g, ""))}
+                        onBlur={() => stockDirty && commit("stock")}
+                        onKeyDown={e => e.key === "Enter" && e.target.blur()}
+                    />
+                </td>
+                <td className="num">
+                    <input
+                        className={"cell" + (discDirty ? " dirty" : "")}
+                        value={disc}
+                        onChange={e => setDisc(e.target.value.replace(/[^\d.]/g, ""))}
+                        onBlur={() => discDirty && commit("discount")}
+                        onKeyDown={e => e.key === "Enter" && e.target.blur()}
+                    />
+                </td>
+                <td>
+                    {l.stockQty === 0
+                        ? <span className="pill out">out of stock</span>
+                        : <span className="pill ok">sellable</span>}
+                    {Number(l.maxDiscountPct) === 0 &&
+                        <span className="pill fixed" style={{ marginLeft: 6 }}>firm price</span>}
+                    {flash && <span className="saved">{flash}</span>}
+                </td>
+            </tr>
+        );
+    }
+
+    function App() {
+        const [summary, setSummary] = useState(null);
+        const [laptops, setLaptops] = useState([]);
+        const [convos, setConvos] = useState([]);
+        const [error, setError] = useState("");
+
+        const load = useCallback(async () => {
+            try {
+                const [s, l, c] = await Promise.all([
+                    api("/analytics/summary"),
+                    api("/laptops"),
+                    api("/conversations"),
+                ]);
+                setSummary(s);
+                setLaptops(l.sort((a, b) => Number(a.basePrice) - Number(b.basePrice)));
+                setConvos(c);
+                setError("");
+            } catch (e) {
+                setError("Could not reach the backend on :8080 — " + e.message);
+            }
+        }, []);
+
+        useEffect(() => { load(); }, [load]);
+
+        return (
+            <>
+                <header>
+                    <div className="logo">Seller<span>AI</span></div>
+                    <div className="sub">Merchant dashboard</div>
+                    <div className="spacer"></div>
+                    <a className="nav" href="/">Open the shop →</a>
+                    <button className="ghost" onClick={load}>Refresh</button>
+                </header>
+
+                <main>
+                    {error && <div className="err">{error}</div>}
+
+                    <h2>Performance</h2>
+                    {summary && (
+                        <div className="tiles">
+                            <Tile k="Conversations" v={summary.conversations}
+                                  n={summary.conversationsWithSearch + " reached search"} />
+                            <Tile k="Orders" v={summary.orders}
+                                  n={summary.conversionRate + "% conversion"} />
+                            <Tile k="Revenue" v={INR(summary.revenue)}
+                                  n={"avg " + INR(summary.averageOrderValue)} />
+                            <Tile k="Discount given" v={INR(summary.totalDiscountGiven)}
+                                  n={"avg approved " + Number(summary.averageApprovedPct) + "%"} />
+                            <Tile k="Offers issued" v={summary.offersIssued}
+                                  n={summary.offersRedeemed + " redeemed"} />
+                            <Tile k="Objections raised" v={summary.conversationsWithObjection}
+                                  n="price pushback" />
+                            <Tile k="Tool calls" v={summary.totalToolCalls}
+                                  n={"avg " + Number(summary.averageToolCallsPerConversation) + " per chat"} />
+                            <Tile k="Questions before search" v={Number(summary.averageQuestionsBeforeSearch)}
+                                  n="lower is better" />
+                        </div>
+                    )}
+                    <p className="note">
+                        Every figure here comes from rows the agent cannot write directly. Orders,
+                        offers and tool calls are all created by the backend — so conversion and
+                        discount exposure are measurements, not the model's self-report.
+                    </p>
+
+                    <h2>Inventory — you control what the agent can sell</h2>
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Model</th><th>CPU</th><th>GPU</th>
+                            <th className="num">Price</th>
+                            <th className="num">Stock</th>
+                            <th className="num">Max disc %</th>
+                            <th>Status</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {laptops.map(l => <InventoryRow key={l.id} l={l} onSaved={load} />)}
+                        </tbody>
+                    </table>
+                    <p className="note">
+                        Edit stock or the discount ceiling and press Enter. Set stock to 0 and the
+                        agent can no longer surface that model at all — search filters it out before
+                        the model ever sees it. Set the ceiling to 0 and the price becomes firm no
+                        matter how the customer negotiates.
+                    </p>
+
+                    <h2>Conversations</h2>
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Started</th><th>Stage</th><th>Customer</th><th>Discussing</th>
+                            <th className="num">Rounds</th>
+                            <th className="num">Tools</th>
+                            <th className="num">Discount</th>
+                            <th>Outcome</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {convos.length === 0 && (
+                            <tr><td colSpan="8" className="muted">No conversations yet.</td></tr>
+                        )}
+                        {convos.map(c => (
+                            <tr key={c.conversationId}>
+                                <td className="muted">{new Date(c.startedAt).toLocaleString()}</td>
+                                <td><span className="pill stage">
+                  {c.stage.replace(/_/g, " ").toLowerCase()}
+                </span></td>
+                                <td className="mono muted">{c.identityKey || "anonymous"}</td>
+                                <td>{c.selectedLaptop || <span className="muted">—</span>}</td>
+                                <td className="num">{c.negotiationRounds}</td>
+                                <td className="num">{c.toolCallsTotal}</td>
+                                <td className="num">
+                                    {c.approvedDiscountPct != null
+                                        ? Number(c.approvedDiscountPct) + "%"
+                                        : <span className="muted">—</span>}
+                                </td>
+                                <td>
+                                    {c.orderId
+                                        ? <span className="pill ok">{c.orderStatus} · {INR(c.orderValue)}</span>
+                                        : <span className="muted">open</span>}
+                                </td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
+                    <p className="note">
+                        Open any conversation's full audit trail at
+                        <span className="mono"> /chat/&lt;id&gt;</span> — every tool call, its
+                        arguments, and the result the agent was given. That is what makes
+                        "did the agent make anything up?" a question you can answer.
+                    </p>
+                </main>
+            </>
+        );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

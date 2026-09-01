@@ -1,2 +1,6 @@
-docs
+Seller AI-backend/docs
 Seller AI-backend/src/main/resources/application-secrets.yml
+Seller AI-backend/target/
+Seller AI-backend/.idea
+Seller AI-backend/eval/transcripts/
+docs/

@@ -71,6 +71,24 @@ public class LaptopService {
         return LaptopDto.from(laptops.save(l));
     }
 
+    /**
+     * The merchant's negotiation ceiling for one laptop. This single number is
+     * the outer bound on everything the agent can ever offer on it — set it to
+     * zero and the price becomes non-negotiable, whatever the customer says.
+     */
+    public LaptopDto updateMaxDiscount(UUID id, BigDecimal maxDiscountPct) {
+        Laptop l = require(id);
+        l.setMaxDiscountPct(maxDiscountPct);
+        return LaptopDto.from(laptops.save(l));
+    }
+
+    /** Replace a product's photo list. Empty clears it back to the placeholder. */
+    public LaptopDto updateImages(UUID id, List<String> images) {
+        Laptop l = require(id);
+        l.setImages(images == null ? new java.util.ArrayList<>() : new java.util.ArrayList<>(images));
+        return LaptopDto.from(laptops.save(l));
+    }
+
     public void delete(UUID id) {
         Laptop l = require(id);
         laptops.delete(l);
@@ -111,5 +129,6 @@ public class LaptopService {
         l.setOs(req.os());
         l.setReleaseYear(req.releaseYear());
         l.setExtraSpecs(req.extraSpecs() == null ? new LinkedHashMap<>() : new LinkedHashMap<>(req.extraSpecs()));
+        l.setImages(req.images() == null ? new java.util.ArrayList<>() : new java.util.ArrayList<>(req.images()));
     }
 }

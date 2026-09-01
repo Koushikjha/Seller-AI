@@ -57,13 +57,15 @@ public class GeminiLlmClient implements LlmClient {
 
         JsonNode response;
         try {
-            response = http.post()
+            response = LlmRetry.execute("Gemini", log, () -> http.post()
                     .uri(url)
                     .header("x-goog-api-key", cfg.getApiKey())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
-                    .body(JsonNode.class);
+                    .body(JsonNode.class));
+        } catch (LlmException e) {
+            throw e;
         } catch (Exception e) {
             throw new LlmException("Gemini call failed: " + e.getMessage(), e);
         }

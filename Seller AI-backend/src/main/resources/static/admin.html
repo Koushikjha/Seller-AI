@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%233b58f5'/%3E%3Cstop offset='1' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M16 6l2.8 7.2L26 16l-7.2 2.8L16 26l-2.8-7.2L6 16l7.2-2.8L16 6z' fill='white'/%3E%3C/svg%3E">
+    <title>Voltix — Admin</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.2/babel.min.js"></script>
+
+    <style>
+        :root{
+            --bg:#f4f5f7;--card:#fff;--ink:#101319;--muted:#69707d;--line:#e6e8ec;
+            --accent:#3b58f5;--accent-2:#8b5cf6;--accent-soft:#eef1ff;
+            --good:#087443;--good-soft:#e7f6ee;--bad:#b42318;--bad-soft:#fdeceb;
+            --warn:#8a4b00;--warn-soft:#fdf1e3;
+            --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+            --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+            --shadow:0 10px 40px rgba(16,19,25,.13),0 2px 8px rgba(16,19,25,.06);
+        }
+        *{box-sizing:border-box}
+        body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:14px}
+        button,input,select{font:inherit}
+
+        .nav{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line)}
+        .nav-in{max-width:1220px;margin:0 auto;padding:0 22px;height:60px;display:flex;align-items:center;gap:16px}
+        .brand{font-weight:700;font-size:17px;letter-spacing:-.02em}
+        .brand em{font-style:normal;background:linear-gradient(90deg,var(--accent),var(--accent-2));
+            -webkit-background-clip:text;background-clip:text;color:transparent}
+        .tag{font-size:12px;color:var(--muted)}
+        .sp{flex:1}
+        a.link{font-size:13px;color:var(--accent);text-decoration:none;font-weight:600}
+        a.link:hover{text-decoration:underline}
+        .ghost{font-size:12.5px;font-weight:600;background:none;border:1px solid var(--line);
+            color:var(--muted);padding:6px 12px;border-radius:8px;cursor:pointer}
+        .ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+        .tabs{max-width:1220px;margin:0 auto;padding:16px 22px 0;display:flex;gap:6px}
+        .tabs button{background:none;border:none;padding:9px 14px;border-radius:9px;cursor:pointer;
+            color:var(--muted);font-weight:600;font-size:13.5px}
+        .tabs button.on{background:var(--ink);color:#fff}
+
+        main{max-width:1220px;margin:0 auto;padding:18px 22px 70px}
+        h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+            font-weight:650;margin:26px 0 11px}
+        h2:first-child{margin-top:0}
+
+        .tiles{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(165px,1fr))}
+        .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+        .tile .k{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:650}
+        .tile .v{font-size:22px;font-weight:700;margin-top:5px;letter-spacing:-.02em}
+        .tile .n{font-size:11px;color:var(--muted);margin-top:3px}
+
+        table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
+            border-radius:12px;overflow:hidden}
+        th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+            font-weight:650;padding:10px 12px;background:#fafbfc;border-bottom:1px solid var(--line);white-space:nowrap}
+        td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+        tr:last-child td{border-bottom:none}
+        td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+        .model{font-weight:620}
+        .sub{font-size:11px;color:var(--muted)}
+        .mono{font-family:var(--mono);font-size:12px}
+        .muted{color:var(--muted)}
+
+        .thumb{width:52px;height:40px;border-radius:7px;background:#f7f8fa;overflow:hidden;
+            display:flex;align-items:center;justify-content:center}
+        .thumb img{width:100%;height:100%;object-fit:contain}
+
+        input.cell{width:66px;padding:5px 8px;border:1px solid var(--line);border-radius:7px;
+            text-align:right;font-size:13px;font-variant-numeric:tabular-nums}
+        input.cell:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,88,245,.12)}
+        input.cell.dirty{border-color:var(--warn);background:var(--warn-soft)}
+        input.wide{width:100%;padding:6px 9px;border:1px solid var(--line);border-radius:7px;font-size:12.5px}
+
+        .pill{font-size:10.5px;font-weight:650;padding:3px 8px;border-radius:6px;white-space:nowrap}
+        .pill.ok{background:var(--good-soft);color:var(--good)}
+        .pill.out{background:var(--bad-soft);color:var(--bad)}
+        .pill.fixed{background:#f0f1f3;color:var(--muted)}
+        .pill.stage{background:var(--accent-soft);color:var(--accent)}
+        .saved{font-size:11px;color:var(--good);font-weight:650;margin-left:7px}
+        .failed{font-size:11px;color:var(--bad);font-weight:650;margin-left:7px}
+
+        .note{color:var(--muted);font-size:12px;line-height:1.55;margin:9px 0 0;max-width:760px}
+        .err{background:var(--bad-soft);color:var(--bad);border:1px solid #f5c6c2;padding:10px 13px;
+            border-radius:9px;font-size:13px;margin-bottom:14px}
+
+        /* add-product form */
+        .form{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+        .fgrid{display:grid;gap:13px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+        .field{display:flex;flex-direction:column;gap:5px}
+        .field label{font-size:11px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+        .field input,.field select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+            font-size:13px;background:#fff;outline:none}
+        .field input:focus,.field select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,88,245,.12)}
+        .field.full{grid-column:1/-1}
+        .actions{display:flex;gap:9px;align-items:center;margin-top:16px}
+        .primary{background:var(--ink);color:#fff;border:none;padding:10px 18px;border-radius:9px;
+            font-weight:620;cursor:pointer}
+        .primary:disabled{background:#c9cfdd;cursor:not-allowed}
+        .ok-msg{color:var(--good);font-weight:620;font-size:13px}
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+    const INR = n => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+
+    async function api(path, opts) {
+        const r = await fetch(path, opts);
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error?.message || "request failed");
+        return j.data;
+    }
+    const json = (method, body) => ({
+        method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+
+    function placeholder(brand, model) {
+        const seed = (brand + model).split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+        const h = seed % 360;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240">
+    <rect width="320" height="240" fill="hsl(${h},55%,94%)"/>
+    <rect x="78" y="76" width="164" height="98" rx="7" fill="none"
+          stroke="hsl(${h},34%,52%)" stroke-width="3" opacity=".5"/>
+    <path d="M58 178h204l12 14H46z" fill="hsl(${h},34%,52%)" opacity=".38"/>
+  </svg>`;
+        return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    }
+    const photoOf = l => (l.images && l.images.length)
+        ? l.images[0] : placeholder(l.subBrand.brandName, l.modelName);
+
+    function Tile({ k, v, n }) {
+        return <div className="tile"><div className="k">{k}</div><div className="v">{v}</div>
+            {n && <div className="n">{n}</div>}</div>;
+    }
+
+    /* ---------------- inventory ---------------- */
+
+    function Row({ l, reload }) {
+        const [stock, setStock] = useState(String(l.stockQty));
+        const [disc, setDisc] = useState(String(Number(l.maxDiscountPct)));
+        const [imgs, setImgs] = useState((l.images || []).join(", "));
+        const [flash, setFlash] = useState(null);
+
+        const dStock = String(l.stockQty) !== stock;
+        const dDisc = String(Number(l.maxDiscountPct)) !== String(Number(disc || 0));
+        const dImgs = (l.images || []).join(", ") !== imgs;
+
+        async function save(kind) {
+            try {
+                if (kind === "stock")
+                    await api(`/laptops/${l.id}/stock`, json("PATCH", { stockQty: Number(stock) }));
+                else if (kind === "disc")
+                    await api(`/laptops/${l.id}/discount`, json("PATCH", { maxDiscountPct: Number(disc) }));
+                else
+                    await api(`/laptops/${l.id}/images`, json("PATCH", {
+                        images: imgs.split(",").map(s => s.trim()).filter(Boolean),
+                    }));
+                setFlash("saved"); setTimeout(() => setFlash(null), 1400);
+                reload();
+            } catch (e) { setFlash("failed"); }
+        }
+
+        return (
+            <tr>
+                <td><div className="thumb"><img src={photoOf(l)} alt=""/></div></td>
+                <td>
+                    <div className="model">{l.modelName}</div>
+                    <div className="sub">{l.subBrand.brandName} · {l.subBrand.name} · {l.subBrand.segment}</div>
+                </td>
+                <td className="num">{INR(l.basePrice)}</td>
+                <td className="num">
+                    <input className={"cell" + (dStock ? " dirty" : "")} value={stock}
+                           onChange={e => setStock(e.target.value.replace(/\D/g, ""))}
+                           onBlur={() => dStock && save("stock")}
+                           onKeyDown={e => e.key === "Enter" && e.target.blur()}/>
+                </td>
+                <td className="num">
+                    <input className={"cell" + (dDisc ? " dirty" : "")} value={disc}
+                           onChange={e => setDisc(e.target.value.replace(/[^\d.]/g, ""))}
+                           onBlur={() => dDisc && save("disc")}
+                           onKeyDown={e => e.key === "Enter" && e.target.blur()}/>
+                </td>
+                <td style={{ minWidth: 230 }}>
+                    <input className={"wide" + (dImgs ? " dirty" : "")} value={imgs}
+                           placeholder="image URLs, comma separated — blank shows a placeholder"
+                           onChange={e => setImgs(e.target.value)}
+                           onBlur={() => dImgs && save("imgs")}
+                           onKeyDown={e => e.key === "Enter" && e.target.blur()}/>
+                </td>
+                <td>
+                    {l.stockQty === 0 ? <span className="pill out">out of stock</span>
+                        : <span className="pill ok">sellable</span>}
+                    {Number(l.maxDiscountPct) === 0 &&
+                        <span className="pill fixed" style={{ marginLeft: 5 }}>firm</span>}
+                    {flash && <span className={flash === "saved" ? "saved" : "failed"}>{flash}</span>}
+                </td>
+            </tr>
+        );
+    }
+
+    /* ---------------- add product ---------------- */
+
+    const BLANK = {
+        subBrandId: "", cpuId: "", gpuId: "", modelName: "", basePrice: "", maxDiscountPct: "5",
+        stockQty: "5", ramGb: "16", ramType: "DDR5", storageGb: "512", storageType: "SSD",
+        displayInches: "15.6", displayType: "FHD", refreshRateHz: "60", weightKg: "1.8",
+        batteryHours: "8", os: "Windows 11 Home", releaseYear: "2025", images: "",
+    };
+
+    function AddProduct({ refs, onCreated }) {
+        const [f, setF] = useState(BLANK);
+        const [busy, setBusy] = useState(false);
+        const [msg, setMsg] = useState(null);
+        const set = (k, v) => setF(s => ({ ...s, [k]: v }));
+
+        const ready = f.subBrandId && f.cpuId && f.modelName.trim() && f.basePrice;
+
+        async function submit() {
+            setBusy(true); setMsg(null);
+            try {
+                await api("/laptops", json("POST", {
+                    subBrandId: f.subBrandId,
+                    cpuId: f.cpuId,
+                    gpuId: f.gpuId || null,
+                    modelName: f.modelName.trim(),
+                    basePrice: Number(f.basePrice),
+                    maxDiscountPct: Number(f.maxDiscountPct || 0),
+                    stockQty: Number(f.stockQty || 0),
+                    ramGb: Number(f.ramGb), ramType: f.ramType,
+                    storageGb: Number(f.storageGb), storageType: f.storageType,
+                    displayInches: Number(f.displayInches), displayType: f.displayType,
+                    refreshRateHz: Number(f.refreshRateHz),
+                    touchscreen: false,
+                    weightKg: Number(f.weightKg), batteryHours: Number(f.batteryHours),
+                    os: f.os, releaseYear: Number(f.releaseYear),
+                    extraSpecs: {},
+                    images: f.images.split(",").map(s => s.trim()).filter(Boolean),
+                }));
+                setMsg("Added — it's live in the shop and the agent can sell it now.");
+                setF(BLANK);
+                onCreated();
+            } catch (e) {
+                setMsg("Failed: " + e.message);
+            } finally { setBusy(false); }
+        }
+
+        // Returns elements, not a component type — declaring a component inside
+        // render would remount the input on every keystroke and drop focus.
+        const field = (k, label, placeholder) => (
+            <div className="field" key={k}>
+                <label>{label}</label>
+                <input value={f[k]} placeholder={placeholder}
+                       onChange={e => set(k, e.target.value)}/>
+            </div>
+        );
+
+        return (
+            <div className="form">
+                <div className="fgrid">
+                    <div className="field">
+                        <label>Product line *</label>
+                        <select value={f.subBrandId} onChange={e => set("subBrandId", e.target.value)}>
+                            <option value="">Select…</option>
+                            {refs.subBrands.map(s =>
+                                <option key={s.id} value={s.id}>{s.brandName} {s.name} ({s.segment})</option>)}
+                        </select>
+                    </div>
+                    <div className="field">
+                        <label>Processor *</label>
+                        <select value={f.cpuId} onChange={e => set("cpuId", e.target.value)}>
+                            <option value="">Select…</option>
+                            {refs.cpus.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="field">
+                        <label>Graphics</label>
+                        <select value={f.gpuId} onChange={e => set("gpuId", e.target.value)}>
+                            <option value="">Integrated only</option>
+                            {refs.gpus.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="field full">
+                        <label>Model name *</label>
+                        <input value={f.modelName} onChange={e => set("modelName", e.target.value)}
+                               placeholder="e.g. Vivobook Pro 15 OLED"/>
+                    </div>
+
+                    {field("basePrice", "Price (₹) *", "79990")}
+                    {field("stockQty", "Stock")}
+                    {field("maxDiscountPct", "Max discount %")}
+                    {field("ramGb", "RAM (GB)")}
+                    {field("ramType", "RAM type")}
+                    {field("storageGb", "Storage (GB)")}
+                    {field("storageType", "Storage type")}
+                    {field("displayInches", "Screen (in)")}
+                    {field("displayType", "Panel")}
+                    {field("refreshRateHz", "Refresh (Hz)")}
+                    {field("weightKg", "Weight (kg)")}
+                    {field("batteryHours", "Battery (h)")}
+                    {field("os", "OS")}
+                    {field("releaseYear", "Year")}
+
+                    <div className="field full">
+                        <label>Photos — image URLs, comma separated (leave blank for a placeholder)</label>
+                        <input value={f.images} onChange={e => set("images", e.target.value)}
+                               placeholder="https://…/front.jpg, https://…/side.jpg"/>
+                    </div>
+                </div>
+
+                <div className="actions">
+                    <button className="primary" disabled={!ready || busy} onClick={submit}>
+                        {busy ? "Adding…" : "Add product"}
+                    </button>
+                    {msg && <span className={msg.startsWith("Failed") ? "failed" : "ok-msg"}>{msg}</span>}
+                </div>
+
+                <p className="note">
+                    Max discount is the ceiling the assistant can never exceed, however hard the
+                    customer pushes. Set it to 0 and the price is firm. Stock 0 means the assistant
+                    cannot surface the product at all — it is filtered out before the model sees it.
+                </p>
+            </div>
+        );
+    }
+
+    /* ---------------- app ---------------- */
+
+    function App() {
+        const [tab, setTab] = useState("inventory");
+        const [summary, setSummary] = useState(null);
+        const [laptops, setLaptops] = useState([]);
+        const [convos, setConvos] = useState([]);
+        const [refs, setRefs] = useState({ subBrands: [], cpus: [], gpus: [] });
+        const [error, setError] = useState("");
+
+        const load = useCallback(async () => {
+            try {
+                const [s, l, c, sb, cp, gp] = await Promise.all([
+                    api("/analytics/summary"), api("/laptops"), api("/conversations"),
+                    api("/sub-brands"), api("/cpus"), api("/gpus"),
+                ]);
+                setSummary(s);
+                setLaptops(l.sort((a, b) => Number(a.basePrice) - Number(b.basePrice)));
+                setConvos(c);
+                setRefs({ subBrands: sb, cpus: cp, gpus: gp });
+                setError("");
+            } catch (e) { setError("Could not reach the backend on :8080 — " + e.message); }
+        }, []);
+        useEffect(() => { load(); }, [load]);
+
+        return (
+            <>
+                <nav className="nav"><div className="nav-in">
+                    <div className="brand">Vol<em>tix</em></div>
+                    <span className="tag">Merchant admin</span>
+                    <div className="sp"></div>
+                    <a className="link" href="/">Open the shop →</a>
+                    <button className="ghost" onClick={load}>Refresh</button>
+                </div></nav>
+
+                <div className="tabs">
+                    {[["inventory", "Inventory"], ["add", "Add product"],
+                        ["conversations", "Conversations"], ["metrics", "Performance"]].map(([k, label]) => (
+                        <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{label}</button>
+                    ))}
+                </div>
+
+                <main>
+                    {error && <div className="err">{error}</div>}
+
+                    {tab === "metrics" && summary && (
+                        <>
+                            <h2>Performance</h2>
+                            <div className="tiles">
+                                <Tile k="Conversations" v={summary.conversations}
+                                      n={summary.conversationsWithSearch + " reached search"}/>
+                                <Tile k="Orders" v={summary.orders} n={summary.conversionRate + "% conversion"}/>
+                                <Tile k="Revenue" v={INR(summary.revenue)} n={"avg " + INR(summary.averageOrderValue)}/>
+                                <Tile k="Discount given" v={INR(summary.totalDiscountGiven)}
+                                      n={"avg approved " + Number(summary.averageApprovedPct) + "%"}/>
+                                <Tile k="Offers issued" v={summary.offersIssued} n={summary.offersRedeemed + " redeemed"}/>
+                                <Tile k="Objections" v={summary.conversationsWithObjection} n="price pushback"/>
+                                <Tile k="Tool calls" v={summary.totalToolCalls}
+                                      n={"avg " + Number(summary.averageToolCallsPerConversation) + " per chat"}/>
+                                <Tile k="Questions before search" v={Number(summary.averageQuestionsBeforeSearch)}
+                                      n="lower is better"/>
+                            </div>
+                            <p className="note">
+                                Every figure comes from rows the assistant cannot write directly — orders,
+                                offers and tool calls are all created by the backend. Conversion and discount
+                                exposure are measurements, not the model's self-report.
+                            </p>
+                        </>
+                    )}
+
+                    {tab === "inventory" && (
+                        <>
+                            <h2>Inventory — you control what the assistant can sell</h2>
+                            <table>
+                                <thead><tr>
+                                    <th></th><th>Model</th><th className="num">Price</th>
+                                    <th className="num">Stock</th><th className="num">Max disc %</th>
+                                    <th>Photos</th><th>Status</th>
+                                </tr></thead>
+                                <tbody>{laptops.map(l => <Row key={l.id} l={l} reload={load}/>)}</tbody>
+                            </table>
+                            <p className="note">
+                                Edit and press Enter (or click away) to save. Paste image URLs to replace the
+                                generated placeholder — the shop and the assistant both pick them up immediately.
+                            </p>
+                        </>
+                    )}
+
+                    {tab === "add" && (
+                        <>
+                            <h2>Add a product</h2>
+                            <AddProduct refs={refs} onCreated={load}/>
+                        </>
+                    )}
+
+                    {tab === "conversations" && (
+                        <>
+                            <h2>Conversations</h2>
+                            <table>
+                                <thead><tr>
+                                    <th>Started</th><th>Stage</th><th>Customer</th><th>Discussing</th>
+                                    <th className="num">Rounds</th><th className="num">Tools</th>
+                                    <th className="num">Discount</th><th>Outcome</th><th></th>
+                                </tr></thead>
+                                <tbody>
+                                {convos.length === 0 &&
+                                    <tr><td colSpan="9" className="muted">No conversations yet.</td></tr>}
+                                {convos.map(c => (
+                                    <tr key={c.conversationId}>
+                                        <td className="muted">{new Date(c.startedAt).toLocaleString()}</td>
+                                        <td><span className="pill stage">{c.stage.replace(/_/g, " ").toLowerCase()}</span></td>
+                                        <td className="mono muted">{c.identityKey || "anonymous"}</td>
+                                        <td>{c.selectedLaptop || <span className="muted">—</span>}</td>
+                                        <td className="num">{c.negotiationRounds}</td>
+                                        <td className="num">{c.toolCallsTotal}</td>
+                                        <td className="num">{c.approvedDiscountPct != null
+                                            ? Number(c.approvedDiscountPct) + "%" : <span className="muted">—</span>}</td>
+                                        <td>{c.orderId
+                                            ? <span className="pill ok">{c.orderStatus} · {INR(c.orderValue)}</span>
+                                            : <span className="muted">open</span>}</td>
+                                        <td><a className="link" href={"/chat/" + c.conversationId} target="_blank">audit</a></td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
+                            <p className="note">
+                                "Audit" opens the full transcript — every tool call, its arguments and the
+                                result the assistant was given. That is what makes "did it make anything up?"
+                                a question you can actually answer.
+                            </p>
+                        </>
+                    )}
+                </main>
+            </>
+        );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 package com.marketplace.agent.tool;
+import com.marketplace.laptop.dto.LaptopSummaryDto;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.marketplace.agent.state.Conversation;
@@ -18,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +49,7 @@ public class ToolExecutor {
     private final LaptopSearchService search;
     private final LaptopService laptops;
     private final LaptopCompareService compare;
+    private final PresentationService presentation;
     private final CatalogRegistry catalog;
     private final IdentityService identities;
     private final DiscountService discounts;
@@ -55,11 +58,13 @@ public class ToolExecutor {
     private final ObjectMapper mapper;
 
     public ToolExecutor(LaptopSearchService search, LaptopService laptops, LaptopCompareService compare,
-                        CatalogRegistry catalog, IdentityService identities, DiscountService discounts,
+                        PresentationService presentation, CatalogRegistry catalog,
+                        IdentityService identities, DiscountService discounts,
                         OrderService orders, WebInfoService webInfo, ObjectMapper mapper) {
         this.search = search;
         this.laptops = laptops;
         this.compare = compare;
+        this.presentation = presentation;
         this.catalog = catalog;
         this.identities = identities;
         this.discounts = discounts;
@@ -74,6 +79,7 @@ public class ToolExecutor {
             return switch (name) {
                 case "search_laptops"         -> searchLaptops(a);
                 case "get_laptop_details"     -> ToolOutcome.ok(laptops.get(uuid(a, "id")));
+                case "present_products"       -> presentProducts(a);
                 case "compare_laptops"        -> compareLaptops(a);
                 case "search_catalog"         -> searchCatalog(a);
                 case "verify_identity"        -> verifyIdentity(a);
@@ -113,7 +119,56 @@ public class ToolExecutor {
                 bool(a, "discreteGpuRequired"), integer(a, "minVramGb"), str(a, "modelNameContains"),
                 true,                       // inStockOnly is NOT a model-controlled parameter
                 capLimit(integer(a, "limit")), str(a, "sort"));
-        return ToolOutcome.ok(search.searchSummaries(criteria));
+
+        List<LaptopSummaryDto> found = search.searchSummaries(criteria);
+        if (!found.isEmpty() || criteria.maxPrice() == null) {
+            return ToolOutcome.ok(found);
+        }
+        return widenPastBudget(criteria);
+    }
+
+    /**
+     * A stated budget is a centre, not a wall.
+     *
+     * A customer saying "around ₹120k" and being told "we have nothing" while a
+     * ₹124,990 machine sits in stock is the shop losing a sale to an arithmetic
+     * comparison. No salesperson behaves that way — they say "nothing quite under
+     * that, but this one's close, and here's why it's worth the extra".
+     *
+     * This lives in the backend rather than the prompt on purpose. Asking the model
+     * to "search a bit wider" is a rule it will follow inconsistently across
+     * providers, and we have already watched two models diverge on simpler
+     * instructions than this one. The retry is deterministic; the note tells the
+     * agent exactly what it is looking at so it cannot present these as in-budget.
+     *
+     * Only ever fires when the strict search returned nothing, so it can never
+     * push an over-budget machine in front of a customer who had real options.
+     */
+    private static final BigDecimal BUDGET_HEADROOM = new BigDecimal("1.20");
+
+    private ToolOutcome widenPastBudget(LaptopSearchCriteria strict) {
+        BigDecimal ceiling = strict.maxPrice();
+        BigDecimal widened = ceiling.multiply(BUDGET_HEADROOM);
+
+        List<LaptopSummaryDto> near = search.searchSummaries(new LaptopSearchCriteria(
+                strict.minPrice(), widened, strict.minRam(), strict.minStorage(),
+                strict.storageType(), strict.os(), strict.refreshRateMin(), strict.maxWeightKg(),
+                strict.minBatteryHours(), strict.touchscreen(), strict.displayType(),
+                strict.brand(), strict.subBrand(), strict.segment(), strict.priceTier(),
+                strict.cpuBenchmarkTier(), strict.gpuBrand(), strict.gpuBenchmarkTier(),
+                strict.discreteGpuRequired(), strict.minVramGb(), strict.modelNameContains(),
+                true, 3, null));      // null sort = cheapest first, the only order that makes sense here
+
+        if (near.isEmpty()) {
+            return ToolOutcome.ok(List.of(), "Nothing matches, at this budget or up to 20% above it. "
+                    + "The shop does not stock this. Say so plainly.");
+        }
+        return ToolOutcome.ok(near, String.format(
+                "NOTHING was in stock at or under %s. These are the closest ABOVE that ceiling, "
+                        + "cheapest first. Every one of them costs more than the customer asked to spend — "
+                        + "say that first, then make the case for the extra. Never describe these as "
+                        + "within budget or as meeting the price they named.",
+                ceiling.stripTrailingZeros().toPlainString()));
     }
 
     /**
@@ -125,6 +180,29 @@ public class ToolExecutor {
     private Integer capLimit(Integer requested) {
         if (requested == null || requested <= 0) return 6;
         return Math.min(requested, 6);
+    }
+
+    /**
+     * The agent choosing what to put in front of the customer, and saying why.
+     * Ids are re-verified against the catalog here — see PresentationService.
+     */
+    @SuppressWarnings("unchecked")
+    private ToolOutcome presentProducts(Map<String, Object> a) {
+        Object raw = a.get("items");
+        if (!(raw instanceof List<?> list) || list.isEmpty()) {
+            return ToolOutcome.error("BAD_ARGUMENTS",
+                    "present_products needs items: [{laptopId, reason}]", null);
+        }
+        List<PresentationService.Request> requests = new ArrayList<>();
+        for (Object item : list) {
+            if (!(item instanceof Map<?, ?> m)) {
+                return ToolOutcome.error("BAD_ARGUMENTS",
+                        "each item must be an object with laptopId and reason", null);
+            }
+            Map<String, Object> im = (Map<String, Object>) m;
+            requests.add(new PresentationService.Request(uuid(im, "laptopId"), str(im, "reason")));
+        }
+        return ToolOutcome.ok(presentation.present(requests));
     }
 
     private ToolOutcome compareLaptops(Map<String, Object> a) {
@@ -249,4 +327,6 @@ public class ToolExecutor {
         if (value instanceof Map<?, ?> m) return (Map<String, Object>) m;
         return mapper.convertValue(value, Map.class);
     }
+
+
 }

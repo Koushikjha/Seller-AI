@@ -64,13 +64,15 @@ public class GroqLlmClient implements LlmClient {
 
         JsonNode response;
         try {
-            response = http.post()
+            response = LlmRetry.execute("Groq", log, () -> http.post()
                     .uri(cfg.getBaseUrl() + "/chat/completions")
                     .header("Authorization", "Bearer " + cfg.getApiKey())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
-                    .body(JsonNode.class);
+                    .body(JsonNode.class));
+        } catch (LlmException e) {
+            throw e;
         } catch (Exception e) {
             throw new LlmException("Groq call failed: " + e.getMessage(), e);
         }

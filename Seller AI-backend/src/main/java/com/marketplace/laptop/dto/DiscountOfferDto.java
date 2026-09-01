@@ -31,9 +31,18 @@ public record DiscountOfferDto(
                 o.getNegotiationRounds(), o.getExpiresAt(), o.isRedeemed(), reason);
     }
 
+    /**
+     * Discounted price, rounded to whole rupees.
+     *
+     * Not cosmetic. At two decimal places the backend returns 86,390.40 and the
+     * agent quotes "₹86,390", because no shop prices a laptop in paise — and the
+     * claim audit then flags a figure that traces to nothing. Rounding here means
+     * the number the customer hears is exactly the number the backend computed,
+     * which is the property the whole design rests on.
+     */
     public static BigDecimal applyPct(BigDecimal price, BigDecimal pct) {
         BigDecimal p = pct == null ? BigDecimal.ZERO : pct;
-        return price.subtract(price.multiply(p).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP))
-                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal discount = price.multiply(p).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        return price.subtract(discount).setScale(0, RoundingMode.HALF_UP);
     }
 }

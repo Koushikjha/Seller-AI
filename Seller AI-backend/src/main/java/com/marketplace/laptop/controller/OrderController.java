@@ -26,6 +26,14 @@ public class OrderController {
         this.service = service;
     }
 
+    @PostMapping("/{id}/refresh-payment")
+    @Operation(summary = "Ask Razorpay whether this order's payment link has been paid, and settle "
+            + "it if so. For demos and local development, where the webhook has no public URL to "
+            + "arrive at. Safe to call repeatedly.")
+    public ApiResponse<OrderDto> refreshPayment(@PathVariable UUID id) {
+        return ApiResponse.ok(service.refreshPaymentStatus(id));
+    }
+
     @PostMapping
     @Operation(summary = "Create an order. Validates identity, stock and discount offer before pricing.")
     public ResponseEntity<ApiResponse<OrderDto>> create(@Valid @RequestBody CreateOrderRequest req) {

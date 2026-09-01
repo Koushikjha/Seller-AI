@@ -124,6 +124,29 @@ public class AgentManifestService {
                 ToolDefinition.AUTHORITATIVE));
 
         tools.add(new ToolDefinition(
+                "present_products",
+                "Put products in front of the customer, with your reason for each one. Call this "
+                        + "after search_laptops whenever you are recommending or showing options — the "
+                        + "customer sees these as cards with your reason underneath. Give a real reason "
+                        + "tied to what they told you (\"the only 144Hz screen under your budget\"), not a "
+                        + "spec restatement. At most 4, and fewer is usually better. Ids are re-verified "
+                        + "against the catalog, so an invented or since-sold-out id is rejected.",
+                "POST", "/chat (internal)",
+                object(props(
+                        p("items", Map.of(
+                                "type", "array",
+                                "description", "1-4 products to show, best fit first",
+                                "items", Map.of(
+                                        "type", "object",
+                                        "properties", Map.of(
+                                                "laptopId", str("Laptop UUID from search_laptops"),
+                                                "reason", str("One sentence: why this one, for this customer")),
+                                        "required", List.of("laptopId", "reason"))))
+                ), List.of("items")),
+                List.of("UNKNOWN_PRODUCT", "OUT_OF_STOCK", "TOO_MANY_PRESENTED", "BAD_ARGUMENTS"),
+                ToolDefinition.AUTHORITATIVE));
+
+        tools.add(new ToolDefinition(
                 "compare_laptops",
                 "Aligned spec table for 2-5 laptops. Rows where the models differ are flagged and "
                         + "listed first — argue from those rows rather than reciting every spec.",

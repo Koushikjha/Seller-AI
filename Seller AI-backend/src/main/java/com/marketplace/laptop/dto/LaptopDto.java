@@ -6,6 +6,7 @@ import com.marketplace.catalog.dto.SubBrandDto;
 import com.marketplace.laptop.entity.Laptop;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -31,7 +32,8 @@ public record LaptopDto(
         Integer batteryHours,
         String os,
         Integer releaseYear,
-        Map<String, Object> extraSpecs
+        Map<String, Object> extraSpecs,
+        List<String> images
 ) {
     public static LaptopDto from(Laptop l) {
         return new LaptopDto(
@@ -43,6 +45,7 @@ public record LaptopDto(
                 l.getRamGb(), l.getRamType(), l.getStorageGb(), l.getStorageType(),
                 l.getDisplayInches(), l.getDisplayType(), l.getRefreshRateHz(), l.isTouchscreen(),
                 l.getWeightKg(), l.getBatteryHours(), l.getOs(), l.getReleaseYear(),
-                l.getExtraSpecs());
+                l.getExtraSpecs(),
+                l.getImages() == null ? List.of() : l.getImages());
     }
 }

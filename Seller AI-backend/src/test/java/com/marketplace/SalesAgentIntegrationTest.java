@@ -1,4 +1,5 @@
 package com.marketplace;
+import com.marketplace.agent.state.SalesStage;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -74,10 +75,17 @@ class SalesAgentIntegrationTest {
     void searchAdvancesStateAndReturnsCandidates() throws Exception {
         JsonNode res = send(null, "gaming laptop under 90000");
 
-        assertThat(res.get("candidates")).isNotEmpty();
-        assertThat(res.get("stage").asText()).isEqualTo("PRODUCT_SEARCH");
-        res.get("candidates").forEach(c ->
-                assertThat(c.get("stockQty").asInt()).isGreaterThan(0));
+        assertThat(res.get("products")).isNotEmpty();
+        // Not an exact stage. SalesStage is a description of the situation, not a
+        // gate — the scripted client searches and then presents in the same turn,
+        // so the turn ends at PRODUCT_PRESENTATION. Pinning one value here tests
+        // the fake model's script rather than the machinery.
+        assertThat(SalesStage.valueOf(res.get("stage").asText()))
+                .isGreaterThanOrEqualTo(SalesStage.PRODUCT_SEARCH);
+        // Each entry is {product, reason} — the backend's record and the agent's
+        // words, kept apart on purpose. Search results carry a null reason.
+        res.get("products").forEach(p ->
+                assertThat(p.get("product").get("stockQty").asInt()).isGreaterThan(0));
     }
 
     @Test
@@ -86,7 +94,7 @@ class SalesAgentIntegrationTest {
         JsonNode res = send(null, "do you have a MacBook Pro");
 
         assertThat(res.get("toolCalls").get(0).get("tool").asText()).isEqualTo("search_laptops");
-        assertThat(res.get("candidates")).isEmpty();
+        assertThat(res.get("products")).isEmpty();
     }
 
     @Test
@@ -136,5 +144,29 @@ class SalesAgentIntegrationTest {
     @DisplayName("the offline client is what tests run against")
     void providerIsScripted() throws Exception {
         assertThat(getData("/chat/meta/provider").get("provider").asText()).isEqualTo("scripted");
+    }
+
+    @Test
+    @DisplayName("a budget nothing fits widens rather than returning an empty shelf")
+    void budgetBelowTheShelfWidensInsteadOfRefusing() throws Exception {
+        // Cheapest seeded machine is the Aspire 3 at 38,990. A strict search at
+        // 35,000 finds nothing; the backend retries 20% up and returns the near
+        // misses with a note saying they are over budget.
+        JsonNode res = send(null, "laptop under 35000");
+
+        assertThat(res.get("products")).isNotEmpty();
+        res.get("products").forEach(p ->
+                assertThat(p.get("product").get("price").decimalValue())
+                        .isGreaterThan(new java.math.BigDecimal("35000")));
+    }
+
+    @Test
+    @DisplayName("a budget nothing comes close to still returns nothing")
+    void budgetFarBelowTheShelfStaysEmpty() throws Exception {
+        // 20,000 widened by 20% is 24,000 — still under the cheapest machine.
+        // Widening must not become a licence to ignore the budget entirely.
+        JsonNode res = send(null, "laptop under 20000");
+
+        assertThat(res.get("products")).isEmpty();
     }
 }

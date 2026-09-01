@@ -113,9 +113,62 @@ public class OrderService {
         return OrderDto.from(orders.save(order));
     }
 
+    /**
+     * Settle without failing when it has already happened.
+     *
+     * Razorpay retries a webhook until it gets a 2xx, and it may deliver the same
+     * event twice regardless. {@link #settle} throwing ORDER_ALREADY_SETTLED is
+     * right for a human clicking a button and wrong for a webhook: the retry
+     * would 500 forever on an order that is correctly paid. Idempotent here,
+     * strict there.
+     *
+     * @return true if this call changed the order
+     */
+    public boolean settleIfPending(UUID orderId, boolean paid) {
+        // An id we do not recognise is not an error either. Razorpay accounts get
+        // reused across projects and demos; a webhook for someone else's order
+        // should be shrugged off, not 500'd back into a retry loop.
+        MarketplaceOrder order = orders.findById(orderId).orElse(null);
+        if (order == null || order.getStatus() != OrderStatus.CREATED) {
+            return false;
+        }
+        settle(orderId, paid);
+        return true;
+    }
+
+    /**
+     * Ask the gateway what happened instead of waiting to be told.
+     *
+     * A webhook needs a public URL. This runs on a laptop. Polling is not the
+     * production mechanism and is not pretending to be — it is what makes the
+     * flow demonstrable without a tunnel, and it reads the same gateway the
+     * webhook reads.
+     */
+    public OrderDto refreshPaymentStatus(UUID orderId) {
+        MarketplaceOrder order = require(orderId);
+        if (order.getStatus() != OrderStatus.CREATED || order.getPaymentRef() == null) {
+            return OrderDto.from(order);
+        }
+        if (!(gateway instanceof RazorpayPaymentGateway razorpay)) {
+            throw new BusinessRuleException("NOT_SUPPORTED",
+                    "The " + gateway.name() + " gateway cannot be polled. Use POST /orders/{id}/settle.",
+                    null);
+        }
+        if (razorpay.isPaid(order.getPaymentRef())) {
+            return settle(orderId, true);
+        }
+        return OrderDto.from(order);
+    }
+
     @Transactional(readOnly = true)
     public OrderDto get(UUID orderId) {
         return OrderDto.from(require(orderId));
+    }
+
+    /** Webhooks arrive with Razorpay's ids, not ours. */
+    @Transactional(readOnly = true)
+    public java.util.Optional<MarketplaceOrder> byPaymentRef(String paymentRef) {
+        return orders.findByPaymentRef(paymentRef);
     }
 
     @Transactional(readOnly = true)
@@ -132,4 +185,6 @@ public class OrderService {
     private MarketplaceOrder require(UUID orderId) {
         return orders.findById(orderId).orElseThrow(() -> new NotFoundException("Order", orderId));
     }
+
+
 }

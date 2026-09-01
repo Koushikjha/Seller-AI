@@ -42,6 +42,22 @@ marketplace:
   webinfo:
     cache-ttl-days: 7
     provider: stub
+
+  razorpay:
+    # Pinned empty ON PURPOSE, and not left to ${RAZORPAY_KEY_ID:}.
+    #
+    # application.yml reads those keys from the environment, so a developer who
+    # exported real test keys to run the app would have `mvn test` build a live
+    # RazorpayPaymentGateway and call api.razorpay.com from a unit test. That
+    # fails as a 409 that looks like a business-rule bug and is actually the
+    # shell leaking into the suite. Blank here means the stub gateway, always,
+    # on every machine.
+    key-id: ""
+    key-secret: ""
+    # A known secret so the webhook signature tests can sign a payload. Never
+    # blank, or the controller correctly rejects everything and the tests that
+    # matter never reach the signature check.
+    webhook-secret: "test_webhook_secret"
   agent:
     provider: scripted
     max-tool-iterations: 6

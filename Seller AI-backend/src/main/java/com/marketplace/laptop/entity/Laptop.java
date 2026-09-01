@@ -12,7 +12,9 @@ import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -91,6 +93,11 @@ public class Laptop {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "extra_specs")
     private Map<String, Object> extraSpecs = new LinkedHashMap<>();
+
+    /** Image URLs or paths, in display order. Empty is normal. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "images")
+    private List<String> images = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();

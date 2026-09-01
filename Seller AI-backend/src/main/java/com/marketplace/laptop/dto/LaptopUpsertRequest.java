@@ -3,6 +3,7 @@ package com.marketplace.laptop.dto;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -32,5 +33,6 @@ public record LaptopUpsertRequest(
         String os,
         Integer releaseYear,
 
-        Map<String, Object> extraSpecs
+        Map<String, Object> extraSpecs,
+        List<String> images
 ) {}

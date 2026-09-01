@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%233b58f5'/%3E%3Cstop offset='1' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M16 6l2.8 7.2L26 16l-7.2 2.8L16 26l-2.8-7.2L6 16l7.2-2.8L16 6z' fill='white'/%3E%3C/svg%3E">
+    <title>Voltix — Laptops &amp; Electronics</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.2/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/14.1.3/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.7/purify.min.js"></script>
+
+    <style>
+        :root{
+            --bg:#f4f5f7; --card:#fff; --ink:#101319; --muted:#69707d; --line:#e6e8ec;
+            --accent:#3b58f5; --accent-2:#8b5cf6; --accent-soft:#eef1ff;
+            --good:#087443; --good-soft:#e7f6ee; --bad:#b42318; --bad-soft:#fdeceb;
+            --warn:#8a4b00; --warn-soft:#fdf1e3;
+            --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+            --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+            --shadow:0 10px 40px rgba(16,19,25,.13), 0 2px 8px rgba(16,19,25,.06);
+            --nav-h:60px;
+        }
+        *{box-sizing:border-box}
+        html,body{height:100%}
+        body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:14px}
+        button,input{font:inherit}
+
+        /* ================= nav ================= */
+        .nav{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line)}
+        .nav-in{max-width:1260px;margin:0 auto;padding:0 22px;height:var(--nav-h);
+            display:flex;align-items:center;gap:22px}
+        .brand{font-weight:700;font-size:17px;letter-spacing:-.02em;cursor:pointer}
+        .brand em{font-style:normal;background:linear-gradient(90deg,var(--accent),var(--accent-2));
+            -webkit-background-clip:text;background-clip:text;color:transparent}
+        .nav-links{display:flex;gap:4px;align-items:center}
+        .nav-links button{background:none;border:none;color:var(--muted);font-size:13.5px;
+            font-weight:560;padding:7px 12px;border-radius:8px;cursor:pointer}
+        .nav-links button:hover{color:var(--ink);background:#f4f5f7}
+        .nav-links button.on{color:var(--ink);background:#f0f1f4;font-weight:640}
+        .nav-links button.ai{display:flex;align-items:center;gap:6px;font-weight:640;
+            color:var(--accent);background:var(--accent-soft)}
+        .nav-links button.ai:hover{background:#e4e9ff}
+        .nav-links button.ai.on{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff}
+        .nav-links button.ai svg{width:15px;height:15px}
+        .nav-sp{flex:1}
+        .nav-search{border:1px solid var(--line);border-radius:9px;padding:8px 12px;width:220px;
+            font-size:13px;outline:none;background:#fafbfc}
+        .nav-search:focus{border-color:var(--accent);background:#fff}
+        a.admin{font-size:13px;color:var(--muted);text-decoration:none}
+        a.admin:hover{color:var(--accent)}
+
+        /* ================= storefront ================= */
+        .hero{max-width:1260px;margin:0 auto;padding:26px 22px 6px}
+        .hero h1{font-size:24px;letter-spacing:-.025em;margin:0 0 5px}
+        .hero p{color:var(--muted);margin:0 0 16px}
+        .filters{display:flex;gap:7px;flex-wrap:wrap}
+        .filters button{font-size:12.5px;font-weight:550;background:#fff;border:1px solid var(--line);
+            color:#3d4453;padding:6px 13px;border-radius:999px;cursor:pointer}
+        .filters button:hover{border-color:var(--accent);color:var(--accent)}
+        .filters button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+
+        .grid{max-width:1260px;margin:0 auto;padding:18px 22px 70px;
+            display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+        .tile{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;
+            cursor:pointer;transition:box-shadow .15s,transform .15s;display:flex;flex-direction:column}
+        .tile:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+        .shot{aspect-ratio:4/3;background:#f7f8fa;display:flex;align-items:center;justify-content:center;
+            border-bottom:1px solid var(--line);overflow:hidden}
+        .shot img{width:100%;height:100%;object-fit:contain}
+        .tile-b{padding:13px 14px 15px;display:flex;flex-direction:column;gap:7px;flex:1}
+        .kicker{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:650}
+        .title{font-weight:640;line-height:1.3}
+        .specline{font-size:12.5px;color:var(--muted);line-height:1.45}
+        .tile-f{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:4px}
+        .price{font-size:17px;font-weight:700;letter-spacing:-.02em}
+        .pill{font-size:10.5px;font-weight:650;padding:3px 8px;border-radius:6px;white-space:nowrap}
+        .pill.ok{background:var(--good-soft);color:var(--good)}
+        .pill.out{background:var(--bad-soft);color:var(--bad)}
+        .pill.nego{background:var(--warn-soft);color:var(--warn)}
+        .pill.stage{background:var(--accent-soft);color:var(--accent)}
+        .blank{max-width:1260px;margin:0 auto;padding:60px 22px;color:var(--muted);text-align:center}
+
+        /* ================= product modal ================= */
+        .scrim{position:fixed;inset:0;background:rgba(16,19,25,.45);z-index:40;
+            display:flex;align-items:center;justify-content:center;padding:24px}
+        .modal{background:#fff;border-radius:16px;max-width:840px;width:100%;max-height:88vh;
+            overflow:auto;box-shadow:var(--shadow)}
+        .modal-in{display:grid;grid-template-columns:1fr 1fr}
+        .modal-shot{background:#f7f8fa;padding:26px;display:flex;align-items:center;justify-content:center}
+        .modal-shot img{width:100%;object-fit:contain;max-height:320px}
+        .modal-b{padding:24px 26px}
+        .modal-b h2{margin:4px 0 8px;font-size:21px;letter-spacing:-.02em}
+        .spectable{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+        .spectable td{padding:6px 0;border-bottom:1px solid var(--line)}
+        .spectable td:first-child{color:var(--muted);width:42%}
+        .buyrow{display:flex;gap:9px;margin-top:16px}
+        .btn{border:none;border-radius:10px;padding:11px 17px;font-weight:620;cursor:pointer}
+        .btn.primary{background:var(--ink);color:#fff}
+        .btn.primary:disabled{background:#c9cfdd;cursor:not-allowed}
+        .btn.ai{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;
+            display:flex;align-items:center;gap:7px}
+        .btn.ghost{background:none;border:1px solid var(--line);color:var(--muted)}
+        @media(max-width:720px){.modal-in{grid-template-columns:1fr}}
+
+        /* ================= assistant section ================= */
+        .assistant{height:calc(100vh - var(--nav-h));display:flex;
+            max-width:1260px;margin:0 auto;border-left:1px solid var(--line);
+            border-right:1px solid var(--line);background:#fff}
+        .conv{flex:1;display:flex;flex-direction:column;min-width:0}
+        .conv-head{padding:14px 24px;border-bottom:1px solid var(--line);display:flex;
+            align-items:center;gap:11px;flex-shrink:0}
+        .avatar{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:flex;
+            align-items:center;justify-content:center;
+            background:linear-gradient(135deg,var(--accent),var(--accent-2))}
+        .avatar svg{width:19px;height:19px}
+        .conv-head .nm{font-weight:650;line-height:1.2}
+        .conv-head .st{font-size:12px;color:var(--muted);margin-top:1px}
+        .conv-head .sp{flex:1}
+
+        .stream{flex:1;overflow-y:auto;padding:22px 24px 6px;background:#fafbfc}
+        .thread{max-width:640px;margin:0 auto}
+        .msg{margin-bottom:15px;max-width:86%}
+        .msg.me{margin-left:auto}
+        .mb{border-radius:14px;padding:11px 14px;line-height:1.55;font-size:14px}
+        .msg.ai .mb{background:#fff;border:1px solid var(--line);border-bottom-left-radius:5px}
+        .msg.me .mb{background:var(--ink);color:#fff;border-bottom-right-radius:5px}
+        .mb p:first-child{margin-top:0} .mb p:last-child{margin-bottom:0}
+        .mb ul,.mb ol{padding-left:19px;margin:8px 0}
+        .mb code{font-family:var(--mono);font-size:12.5px;background:#f2f3f5;padding:1px 5px;border-radius:4px}
+        /* The agent is told to present products as cards. If it builds a table anyway,
+           render it compactly rather than swallowing the content. */
+        .mb table{border-collapse:collapse;width:100%;margin:9px 0;font-size:12px}
+        .mb th,.mb td{border:1px solid var(--line);padding:5px 7px;text-align:left}
+        .mb th{background:#fafbfc;font-weight:600}
+
+        .sug{display:flex;flex-direction:column;gap:9px;margin:4px 0 16px;max-width:86%}
+        .sug-h{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:650}
+        .srow{display:flex;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px;
+            padding:10px;cursor:pointer;text-align:left;width:100%;
+            transition:border-color .13s,box-shadow .13s}
+        .srow:hover{border-color:var(--accent);box-shadow:0 3px 12px rgba(59,88,245,.11)}
+        .srow.on{border-color:var(--accent);background:var(--accent-soft)}
+        .thumb{width:70px;height:56px;border-radius:8px;background:#f7f8fa;flex-shrink:0;overflow:hidden;
+            display:flex;align-items:center;justify-content:center}
+        .thumb img{width:100%;height:100%;object-fit:contain}
+        .srow-b{min-width:0;flex:1}
+        .srow-t{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+        .srow-n{font-weight:620;font-size:13.5px;line-height:1.25}
+        .srow-p{font-weight:700;font-size:13.5px;white-space:nowrap}
+        .srow-r{font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:3px;
+            display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .srow-m{font-size:11.5px;color:var(--muted);margin-top:4px}
+
+        .composer{border-top:1px solid var(--line);background:#fff;padding:13px 24px 18px;flex-shrink:0}
+        .composer-in{max-width:640px;margin:0 auto}
+        .quick{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}
+        .quick button{font-size:12px;background:#f2f3f5;border:1px solid var(--line);color:#3d4453;
+            padding:5px 11px;border-radius:999px;cursor:pointer}
+        .quick button:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+        .crow{display:flex;gap:9px}
+        .crow input{flex:1;font-size:14px;padding:11px 14px;border-radius:11px;
+            border:1px solid var(--line);outline:none;min-width:0}
+        .crow input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,88,245,.12)}
+        .send{background:linear-gradient(135deg,var(--accent),var(--accent-2));border:none;color:#fff;
+            padding:0 22px;border-radius:11px;cursor:pointer;font-weight:620;flex-shrink:0}
+        .send:disabled{background:#c9cfdd;cursor:not-allowed}
+
+        /* right rail */
+        .rail{width:372px;flex-shrink:0;border-left:1px solid var(--line);
+            display:flex;flex-direction:column;background:#fff;overflow:hidden}
+        .rail-h{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+            font-weight:650;padding:15px 18px 9px}
+        .rail-body{flex:1;overflow-y:auto}
+        .state{padding:0 18px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        .stat{background:#fafbfc;border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+        .stat .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:650}
+        .stat .v{font-size:15px;font-weight:660;margin-top:3px}
+        .stat .v.sm{font-size:12px;font-weight:600}
+        .calls{padding:0 18px 20px}
+        .call{border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:7px}
+        .call-h{display:flex;align-items:center;gap:7px}
+        .dot{width:7px;height:7px;border-radius:50%;background:var(--good);flex-shrink:0}
+        .dot.bad{background:var(--bad)}
+        .call-n{font-family:var(--mono);font-size:12px;font-weight:600}
+        .call-ms{margin-left:auto;font-size:11px;color:var(--muted);font-family:var(--mono)}
+        .call-a{font-family:var(--mono);font-size:11px;color:#3d4453;margin-top:6px;background:#fafbfc;
+            border-radius:6px;padding:7px 9px;white-space:pre-wrap;word-break:break-word;line-height:1.45}
+        .call-err{font-size:11px;color:var(--bad);font-weight:650;margin-top:5px;font-family:var(--mono)}
+        .empty{padding:0 18px 18px;color:var(--muted);font-size:12.5px;line-height:1.55}
+
+        /* product detail in rail */
+        .d-head{display:flex;align-items:center;gap:9px;padding:12px 16px;
+            border-bottom:1px solid var(--line);flex-shrink:0}
+        .back{background:#f2f3f5;border:none;width:30px;height:30px;border-radius:9px;cursor:pointer;font-size:16px}
+        .back:hover{background:#e6e8ec}
+        .d-shot{background:#f7f8fa;padding:22px;display:flex;align-items:center;justify-content:center;
+            border-bottom:1px solid var(--line)}
+        .d-shot img{width:100%;max-height:210px;object-fit:contain}
+        .dots{display:flex;gap:6px;justify-content:center;padding:10px 0 0}
+        .dots button{width:7px;height:7px;border-radius:50%;border:none;background:#d3d7de;cursor:pointer;padding:0}
+        .dots button.on{background:var(--accent)}
+        .d-in{padding:16px 18px}
+        .why{background:linear-gradient(135deg,rgba(59,88,245,.07),rgba(139,92,246,.07));
+            border:1px solid rgba(59,88,245,.18);border-radius:12px;padding:12px 13px;margin-bottom:14px}
+        .why .lb{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);
+            font-weight:700;margin-bottom:5px;display:flex;align-items:center;gap:5px}
+        .why .lb svg{width:13px;height:13px}
+        .why p{margin:0;font-size:13px;line-height:1.55}
+        .chips{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0 4px}
+        .chip{font-size:11.5px;background:#f2f3f5;color:#3d4453;padding:4px 9px;border-radius:7px}
+        .d-actions{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line);
+            flex-shrink:0;background:#fff}
+        .d-actions .btn{flex:1;font-size:13px;padding:10px}
+
+        .typing{display:inline-flex;gap:4px;align-items:center;padding:3px 0}
+        .typing i{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:bl 1.1s infinite}
+        .typing i:nth-child(2){animation-delay:.16s} .typing i:nth-child(3){animation-delay:.32s}
+        @keyframes bl{0%,80%,100%{opacity:.25}40%{opacity:1}}
+        .muted{color:var(--muted)}
+
+        @media(max-width:980px){ .rail{display:none} }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+    const INR = n => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+
+    /* Generated placeholder so a product with no photo looks deliberate rather than
+       broken. Hue derives from the brand, so a product line stays visually coherent. */
+    function placeholder(brand, model) {
+        const seed = (String(brand) + String(model)).split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+        const h = seed % 360;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="hsl(${h},62%,95%)"/>
+      <stop offset="1" stop-color="hsl(${(h + 40) % 360},58%,88%)"/>
+    </linearGradient></defs>
+    <rect width="320" height="240" fill="url(#g)"/>
+    <rect x="78" y="76" width="164" height="98" rx="7" fill="none"
+          stroke="hsl(${h},34%,52%)" stroke-width="2.5" opacity=".55"/>
+    <rect x="90" y="88" width="140" height="74" rx="3" fill="hsl(${h},34%,52%)" opacity=".13"/>
+    <path d="M58 178h204l12 14H46z" fill="hsl(${h},34%,52%)" opacity=".4"/>
+    <text x="160" y="216" text-anchor="middle" font-family="system-ui,sans-serif"
+          font-size="12" font-weight="600" fill="hsl(${h},30%,42%)" opacity=".75">${brand}</text>
+  </svg>`;
+        return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    }
+    const photoOf = (p, i = 0) => {
+        const imgs = p.images || [];
+        return imgs.length > i ? imgs[i] : placeholder(p.brand || "", p.modelName);
+    };
+    const md = t => ({ __html: DOMPurify.sanitize(marked.parse(t || "")) });
+
+    async function api(path, opts) {
+        const r = await fetch(path, opts);
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error?.message || "request failed");
+        return j.data;
+    }
+
+    const Spark = ({ c = "#fff" }) => (
+        <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 2.6l2.1 5.5 5.5 2.1-5.5 2.1L12 17.8l-2.1-5.5-5.5-2.1 5.5-2.1L12 2.6z" fill={c}/>
+            <circle cx="18.8" cy="17.6" r="2.1" fill={c} opacity=".75"/>
+            <circle cx="5.4" cy="19.1" r="1.4" fill={c} opacity=".5"/>
+        </svg>
+    );
+
+    /* ======================= storefront ======================= */
+
+    function Tile({ l, onOpen }) {
+        const specs = [l.cpu.name, l.gpu ? l.gpu.name : "Integrated",
+            l.ramGb + "GB", l.storageGb >= 1024 ? "1TB" : l.storageGb + "GB"].join(" · ");
+        return (
+            <div className="tile" onClick={() => onOpen(l)}>
+                <div className="shot">
+                    <img src={photoOf({ ...l, brand: l.subBrand.brandName })} alt={l.modelName}/>
+                </div>
+                <div className="tile-b">
+                    <div className="kicker">{l.subBrand.brandName} · {l.subBrand.name}</div>
+                    <div className="title">{l.modelName}</div>
+                    <div className="specline">{specs}</div>
+                    <div className="tile-f">
+                        <span className="price">{INR(l.basePrice)}</span>
+                        {l.stockQty > 0 ? <span className="pill ok">In stock</span>
+                            : <span className="pill out">Sold out</span>}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    function PhoneTile({ p }) {
+        const s = p.specs || {};
+        const line = [s.chipset, s.ramGb + "GB", s.storageGb + "GB", s.batteryMah && s.batteryMah + "mAh"]
+            .filter(Boolean).join(" · ");
+        return (
+            <div className="tile" style={{ cursor: "default" }}>
+                <div className="shot"><img src={placeholder(p.brand, p.modelName)} alt={p.modelName}/></div>
+                <div className="tile-b">
+                    <div className="kicker">{p.brand} · {p.subBrand}</div>
+                    <div className="title">{p.modelName}</div>
+                    <div className="specline">{line}</div>
+                    <div className="tile-f">
+                        <span className="price">{INR(p.basePrice)}</span>
+                        {p.inStock ? <span className="pill ok">In stock</span>
+                            : <span className="pill out">Sold out</span>}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    function ProductModal({ l, onClose, onAskAI }) {
+        if (!l) return null;
+        const rows = [
+            ["Processor", l.cpu.name], ["Graphics", l.gpu ? l.gpu.name : "Integrated"],
+            ["Memory", l.ramGb + "GB " + (l.ramType || "")],
+            ["Storage", l.storageGb + "GB " + (l.storageType || "")],
+            ["Display", l.displayInches + '" ' + (l.displayType || "") +
+            (l.refreshRateHz ? " · " + l.refreshRateHz + "Hz" : "")],
+            ["Weight", l.weightKg ? l.weightKg + " kg" : "—"],
+            ["Battery", l.batteryHours ? "~" + l.batteryHours + " hours" : "—"],
+            ["OS", l.os || "—"],
+        ];
+        return (
+            <div className="scrim" onClick={onClose}>
+                <div className="modal" onClick={e => e.stopPropagation()}>
+                    <div className="modal-in">
+                        <div className="modal-shot">
+                            <img src={photoOf({ ...l, brand: l.subBrand.brandName })} alt={l.modelName}/>
+                        </div>
+                        <div className="modal-b">
+                            <div className="kicker">{l.subBrand.brandName} · {l.subBrand.name}</div>
+                            <h2>{l.modelName}</h2>
+                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                <span className="price">{INR(l.basePrice)}</span>
+                                {l.stockQty > 0 ? <span className="pill ok">{l.stockQty} in stock</span>
+                                    : <span className="pill out">Sold out</span>}
+                            </div>
+                            <table className="spectable"><tbody>
+                            {rows.map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}
+                            </tbody></table>
+                            <div className="buyrow">
+                                <button className="btn primary" disabled={l.stockQty === 0}>Add to cart</button>
+                                <button className="btn ai" onClick={() => { onAskAI(l); onClose(); }}>
+                                    <Spark/> Ask the assistant
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    /* ======================= assistant ======================= */
+
+    function Suggestions({ items, selectedId, onOpen }) {
+        return (
+            <div className="sug">
+                <div className="sug-h">{items.length} option{items.length === 1 ? "" : "s"} for you</div>
+                {items.map(({ product, reason }) => (
+                    <button key={product.id} onClick={() => onOpen({ product, reason })}
+                            className={"srow" + (selectedId === product.id ? " on" : "")}>
+                        <div className="thumb"><img src={photoOf(product)} alt=""/></div>
+                        <div className="srow-b">
+                            <div className="srow-t">
+                                <span className="srow-n">{product.modelName}</span>
+                                <span className="srow-p">{INR(product.price)}</span>
+                            </div>
+                            {reason ? <div className="srow-r">{reason}</div>
+                                : <div className="srow-m">{product.cpu} · {product.gpu} · {product.ramGb}GB</div>}
+                            <div className="srow-m">
+                                {product.stockQty} in stock{product.negotiable ? " · price negotiable" : ""}
+                            </div>
+                        </div>
+                    </button>
+                ))}
+            </div>
+        );
+    }
+
+    function RailDetail({ item, onBack, onSend }) {
+        const [shot, setShot] = useState(0);
+        const p = item.product;
+        useEffect(() => { setShot(0); }, [p.id]);
+        const imgs = (p.images && p.images.length) ? p.images : [null];
+        const chips = [
+            p.cpu, p.gpu === "Integrated" ? "Integrated graphics" : p.gpu,
+            p.ramGb + "GB RAM",
+            (p.storageGb >= 1024 ? p.storageGb / 1024 + "TB " : p.storageGb + "GB ") + p.storageType,
+            p.displayInches + '" ' + (p.displayType || ""),
+            p.refreshRateHz ? p.refreshRateHz + "Hz" : null,
+            p.weightKg ? p.weightKg + " kg" : null,
+            p.batteryHours ? "~" + p.batteryHours + "h battery" : null,
+            p.os,
+        ].filter(Boolean);
+
+        return (
+            <>
+                <div className="d-head">
+                    <button className="back" onClick={onBack}>‹</button>
+                    <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 650, fontSize: 13.5 }}>{p.modelName}</div>
+                        <div className="muted" style={{ fontSize: 11.5 }}>{p.brand} · {p.subBrand}</div>
+                    </div>
+                </div>
+
+                <div className="rail-body">
+                    <div className="d-shot"><img src={photoOf(p, shot)} alt={p.modelName}/></div>
+                    {imgs.length > 1 && (
+                        <div className="dots">
+                            {imgs.map((_, i) =>
+                                <button key={i} className={i === shot ? "on" : ""} onClick={() => setShot(i)}/>)}
+                        </div>
+                    )}
+                    <div className="d-in">
+                        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 13 }}>
+                            <span className="price">{INR(p.price)}</span>
+                            <span className="pill ok">{p.stockQty} in stock</span>
+                            {p.negotiable && <span className="pill nego">negotiable</span>}
+                        </div>
+                        {item.reason && (
+                            <div className="why">
+                                <div className="lb"><Spark c="#3b58f5"/> Why I picked this for you</div>
+                                <p>{item.reason}</p>
+                            </div>
+                        )}
+                        <div className="chips">{chips.map((c, i) => <span className="chip" key={i}>{c}</span>)}</div>
+                    </div>
+                </div>
+
+                <div className="d-actions">
+                    <button className="btn ghost"
+                            onClick={() => onSend(`what's the best price you can do on the ${p.modelName}?`)}>
+                        Ask about price
+                    </button>
+                    <button className="btn primary" onClick={() => onSend(`I'll take the ${p.modelName}`)}>
+                        I'll take it
+                    </button>
+                </div>
+            </>
+        );
+    }
+
+    function RailActivity({ stage, verified, turn }) {
+        const calls = turn ? turn.toolCalls : [];
+        return (
+            <>
+                <div className="rail-h">Sales state</div>
+                <div className="state">
+                    <div className="stat"><div className="k">Stage</div>
+                        <div className="v sm">{stage ? stage.replace(/_/g, " ").toLowerCase() : "—"}</div></div>
+                    <div className="stat"><div className="k">Identity</div>
+                        <div className="v sm">{verified ? "verified" : "not verified"}</div></div>
+                    <div className="stat"><div className="k">Tools this turn</div>
+                        <div className="v">{calls.length}</div></div>
+                    <div className="stat"><div className="k">Products shown</div>
+                        <div className="v">{turn ? turn.products.length : 0}</div></div>
+                </div>
+
+                <div className="rail-h">What the assistant just did</div>
+                {calls.length === 0 && (
+                    <div className="empty">
+                        No tools called on this turn — it answered from what it had already retrieved.
+                        Every price, spec and stock figure it states has to come from one of these calls.
+                    </div>
+                )}
+                <div className="calls">
+                    {calls.map((c, i) => (
+                        <div className="call" key={i}>
+                            <div className="call-h">
+                                <span className={"dot" + (c.ok ? "" : " bad")}></span>
+                                <span className="call-n">{c.tool}</span>
+                                <span className="call-ms">{c.latencyMs}ms</span>
+                            </div>
+                            <div className="call-a">{JSON.stringify(c.arguments, null, 1)}</div>
+                            {!c.ok && <div className="call-err">{c.errorCode}</div>}
+                        </div>
+                    ))}
+                </div>
+            </>
+        );
+    }
+
+    const QUICK = [
+        "I need a laptop for coding and light gaming, around 90000",
+        "Do you sell MacBooks?",
+        "Something light for travel",
+        "That's too expensive",
+    ];
+
+    function AssistantSection({ seed, onSeedConsumed }) {
+        const [turns, setTurns] = useState([]);
+        const [input, setInput] = useState("");
+        const [busy, setBusy] = useState(false);
+        const [conv, setConv] = useState(null);
+        const [stage, setStage] = useState(null);
+        const [verified, setVerified] = useState(false);
+        const [detail, setDetail] = useState(null);
+        const streamRef = useRef(null);
+
+        const send = useCallback(async (text) => {
+            const message = (text ?? "").trim();
+            if (!message || busy) return;
+            setTurns(t => [...t, { role: "me", text: message }]);
+            setBusy(true);
+            try {
+                const d = await api("/chat", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(conv ? { conversationId: conv, message } : { message }),
+                });
+                setConv(d.conversationId);
+                setStage(d.stage);
+                setVerified(d.identityVerified);
+                setTurns(t => [...t, {
+                    role: "ai", text: d.reply,
+                    products: d.products || [], toolCalls: d.toolCalls || [],
+                }]);
+            } catch (e) {
+                setTurns(t => [...t, {
+                    role: "ai", text: "**I couldn't reach the shop just then.** Try again?",
+                    products: [], toolCalls: [],
+                }]);
+            } finally { setBusy(false); }
+        }, [busy, conv]);
+
+        useEffect(() => {
+            if (seed) { send(seed); onSeedConsumed(); }
+        }, [seed, send, onSeedConsumed]);
+
+        useEffect(() => {
+            const el = streamRef.current;
+            if (el) el.scrollTop = el.scrollHeight;
+        }, [turns, busy]);
+
+        const lastAi = [...turns].reverse().find(t => t.role === "ai");
+
+        return (
+            <div className="assistant">
+                <div className="conv">
+                    <div className="conv-head">
+                        <div className="avatar"><Spark/></div>
+                        <div>
+                            <div className="nm">Shop assistant</div>
+                            <div className="st">Sells only what's actually on the shelf</div>
+                        </div>
+                        <div className="sp"></div>
+                        {stage && <span className="pill stage">{stage.replace(/_/g, " ").toLowerCase()}</span>}
+                    </div>
+
+                    <div className="stream" ref={streamRef}>
+                        <div className="thread">
+                            {turns.length === 0 && (
+                                <div className="msg ai"><div className="mb">
+                                    <p style={{ margin: "0 0 8px" }}>Hi — tell me what you're after and I'll find it
+                                        in what we actually have on the shelf.</p>
+                                    <p style={{ margin: 0, color: "var(--muted)", fontSize: 13 }}>
+                                        Ask for something we don't stock and I'll say so rather than
+                                        improvising.
+                                    </p>
+                                </div></div>
+                            )}
+
+                            {turns.map((t, i) => (
+                                <React.Fragment key={i}>
+                                    <div className={"msg " + t.role}>
+                                        {t.role === "me" ? <div className="mb">{t.text}</div>
+                                            : <div className="mb" dangerouslySetInnerHTML={md(t.text)}/>}
+                                    </div>
+                                    {t.products && t.products.length > 0 && (
+                                        <Suggestions items={t.products} onOpen={setDetail}
+                                                     selectedId={detail ? detail.product.id : null}/>
+                                    )}
+                                </React.Fragment>
+                            ))}
+
+                            {busy && <div className="msg ai"><div className="mb">
+                                <span className="typing"><i></i><i></i><i></i></span>
+                            </div></div>}
+                        </div>
+                    </div>
+
+                    <div className="composer">
+                        <div className="composer-in">
+                            {turns.length === 0 && (
+                                <div className="quick">
+                                    {QUICK.map(q => <button key={q} onClick={() => send(q)} disabled={busy}>{q}</button>)}
+                                </div>
+                            )}
+                            <div className="crow">
+                                <input value={input} placeholder="Ask about anything in the shop…"
+                                       onChange={e => setInput(e.target.value)}
+                                       onKeyDown={e => { if (e.key === "Enter") { send(input); setInput(""); } }}
+                                       disabled={busy}/>
+                                <button className="send" disabled={busy || !input.trim()}
+                                        onClick={() => { send(input); setInput(""); }}>Send</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <aside className="rail">
+                    {detail
+                        ? <RailDetail item={detail} onBack={() => setDetail(null)} onSend={send}/>
+                        : <RailActivity stage={stage} verified={verified} turn={lastAi}/>}
+                </aside>
+            </div>
+        );
+    }
+
+    /* ======================= page ======================= */
+
+    const SEGMENTS = ["All", "GAMING", "ULTRABOOK", "BUSINESS", "BUDGET"];
+
+    function App() {
+        const [view, setView] = useState("laptops");
+        const [laptops, setLaptops] = useState([]);
+        const [phones, setPhones] = useState([]);
+        const [seg, setSeg] = useState("All");
+        const [q, setQ] = useState("");
+        const [modal, setModal] = useState(null);
+        const [seed, setSeed] = useState(null);
+
+        useEffect(() => { api("/laptops").then(setLaptops).catch(() => {}); }, []);
+        useEffect(() => {
+            api("/catalog/search?deviceType=SMARTPHONE&limit=25").then(setPhones).catch(() => {});
+        }, []);
+
+        const shown = laptops
+            .filter(l => seg === "All" || l.subBrand.segment === seg)
+            .filter(l => !q || (l.modelName + " " + l.subBrand.brandName).toLowerCase().includes(q.toLowerCase()))
+            .sort((a, b) => Number(a.basePrice) - Number(b.basePrice));
+
+        function askAI(l) {
+            setSeed(`Tell me about the ${l.modelName} — is it right for me?`);
+            setView("assistant");
+        }
+
+        const NAV = [["laptops", "Laptops"], ["phones", "Phones"], ["accessories", "Accessories"]];
+
+        return (
+            <>
+                <nav className="nav"><div className="nav-in">
+                    <div className="brand" onClick={() => setView("laptops")}>Vol<em>tix</em></div>
+                    <div className="nav-links">
+                        {NAV.map(([k, label]) => (
+                            <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{label}</button>
+                        ))}
+                        <button className={"ai" + (view === "assistant" ? " on" : "")}
+                                onClick={() => setView("assistant")}>
+                            <Spark c={view === "assistant" ? "#fff" : "#3b58f5"}/> Assistant
+                        </button>
+                    </div>
+                    <div className="nav-sp"></div>
+                    {view === "laptops" && (
+                        <input className="nav-search" placeholder="Search products…"
+                               value={q} onChange={e => setQ(e.target.value)}/>
+                    )}
+                    <a className="admin" href="/admin.html">Admin</a>
+                </div></nav>
+
+                {view === "laptops" && (
+                    <>
+                        <div className="hero">
+                            <h1>Laptops</h1>
+                            <p>{shown.length} model{shown.length === 1 ? "" : "s"} · free delivery on everything</p>
+                            <div className="filters">
+                                {SEGMENTS.map(s => (
+                                    <button key={s} className={s === seg ? "on" : ""} onClick={() => setSeg(s)}>
+                                        {s === "All" ? "All" : s.charAt(0) + s.slice(1).toLowerCase()}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="grid">
+                            {shown.map(l => <Tile key={l.id} l={l} onOpen={setModal}/>)}
+                            {laptops.length === 0 && <div className="muted">Loading the catalog…</div>}
+                        </div>
+                    </>
+                )}
+
+                {view === "phones" && (
+                    <>
+                        <div className="hero">
+                            <h1>Phones</h1>
+                            <p>{phones.length} model{phones.length === 1 ? "" : "s"} in stock</p>
+                        </div>
+                        <div className="grid">
+                            {phones.map(p => <PhoneTile key={p.id} p={p}/>)}
+                            {phones.length === 0 && <div className="muted">Nothing in stock right now.</div>}
+                        </div>
+                    </>
+                )}
+
+                {view === "accessories" && (
+                    <div className="blank">
+                        <p>No accessories in the catalog yet.</p>
+                        <p style={{ fontSize: 13 }}>
+                            Add a category in the backend and it appears here — and the assistant
+                            can sell it — without any change to the agent.
+                        </p>
+                    </div>
+                )}
+
+                {view === "assistant" &&
+                    <AssistantSection seed={seed} onSeedConsumed={() => setSeed(null)}/>}
+
+                <ProductModal l={modal} onClose={() => setModal(null)} onAskAI={askAI}/>
+            </>
+        );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

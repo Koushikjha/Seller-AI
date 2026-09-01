@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -48,6 +49,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> constraint(ConstraintViolationException ex) {
         return ResponseEntity.badRequest()
                 .body(ApiResponse.fail("VALIDATION_FAILED", ex.getMessage(), null));
+    }
+
+    /**
+     * A browser asking for /favicon.ico that does not exist is a 404, not an
+     * incident. Without this it falls into the catch-all below and logs a stack
+     * trace at ERROR on every page load.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> missingResource(NoResourceFoundException ex) {
+        log.debug("No static resource: {}", ex.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.fail("NOT_FOUND", "No such resource", null));
     }
 
     @ExceptionHandler(Exception.class)

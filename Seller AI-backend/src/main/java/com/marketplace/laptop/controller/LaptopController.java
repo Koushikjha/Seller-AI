@@ -54,6 +54,20 @@ public class LaptopController {
         return ApiResponse.ok(service.updateStock(id, req.stockQty()));
     }
 
+    @PatchMapping("/{id}/discount")
+    @Operation(summary = "Set the negotiation ceiling for one laptop (merchant)")
+    public ApiResponse<LaptopDto> updateDiscount(@PathVariable UUID id,
+                                                 @Valid @RequestBody DiscountLimitUpdateRequest req) {
+        return ApiResponse.ok(service.updateMaxDiscount(id, req.maxDiscountPct()));
+    }
+
+    @PatchMapping("/{id}/images")
+    @Operation(summary = "Replace a product's photos (merchant). URLs or /images/... paths.")
+    public ApiResponse<LaptopDto> updateImages(@PathVariable UUID id,
+                                               @RequestBody ImagesUpdateRequest req) {
+        return ApiResponse.ok(service.updateImages(id, req.images()));
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a laptop (merchant)")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {

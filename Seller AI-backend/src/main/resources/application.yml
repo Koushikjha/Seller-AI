@@ -1,6 +1,4 @@
 spring:
-  config:
-    import: optional:application-secrets.yml
   application:
     name: marketplace-backend
 
@@ -11,8 +9,8 @@ spring:
     # allowPublicKeyRetrieval is needed for caching_sha2_password over
     # a non-TLS local connection — drop both flags once you run with TLS.
     url: ${DB_URL:jdbc:mysql://localhost:3306/marketplace?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=UTC}
-    username: ${DB_USER}
-    password: ${DB_PASSWORD}
+    username: ${DB_USER:DB}
+    password: ${DB_PASSWORD:Mysqldb#1}
 
   jpa:
     open-in-view: false
@@ -66,14 +64,32 @@ marketplace:
   seed:
     enabled: true
 
+  razorpay:
+    # Blank keys leave the offline stub gateway wired in — the whole order flow
+    # still runs, no money moves. Set these to your rzp_test_ pair from
+    # https://dashboard.razorpay.com/app/website-app-settings/api-keys to go live
+    # against Razorpay's test environment.
+    key-id: ${RAZORPAY_KEY_ID}
+    key-secret: ${RAZORPAY_KEY_SECRET}
+    # NOT the API secret. This is the string you type into the dashboard when
+    # creating the webhook. Blank means webhook calls are rejected, because an
+    # endpoint that marks orders paid must never fail open.
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET}
+    callback-url: ${RAZORPAY_CALLBACK_URL}
+    expiry-minutes: 30
+
   agent:
     # 'scripted' runs the whole loop offline with a deterministic fake model —
     # no API key, no network, no variance. Switch to 'gemini' once you have a key.
     provider: ${AGENT_PROVIDER}
     # Runaway guard: hard stop on tool calls inside one user turn.
     max-tool-iterations: 6
+    # How many recent tool results are replayed in full. Older ones are trimmed
+    # to id/name/price so a long conversation does not resend kilobytes of specs
+    # on every turn — which is what blows a free tier's per-minute token cap.
+    full-tool-results-in-history: 2
     gemini:
-      model: ${GEMINI_MODEL}
+      model: ${GEMINI_MODEL:gemini-3.6-flash}
       api-key: ${GEMINI_API_KEY:}
       temperature: 0.7
       timeout-seconds: 45
@@ -92,5 +108,3 @@ springdoc:
 logging:
   level:
     com.marketplace: INFO
-
-    #AQ.Ab8RN6LwJcab55EVVOAdxNXmAILSi6HGvRvSXYplnXkfsYbSiQ

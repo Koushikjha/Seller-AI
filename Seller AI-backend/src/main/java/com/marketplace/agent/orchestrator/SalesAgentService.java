@@ -13,6 +13,7 @@ import com.marketplace.identity.repository.VerifiedIdentityRepository;
 import com.marketplace.laptop.dto.DiscountOfferDto;
 import com.marketplace.laptop.dto.LaptopDto;
 import com.marketplace.laptop.dto.LaptopSummaryDto;
+import com.marketplace.laptop.dto.PresentedProductDto;
 import com.marketplace.laptop.dto.OrderDto;
 import com.marketplace.laptop.repository.DiscountOfferRepository;
 import com.marketplace.laptop.repository.LaptopRepository;
@@ -60,6 +61,8 @@ public class SalesAgentService {
     private final OrderRepository orders;
     private final VerifiedIdentityRepository identities;
     private final AgentProperties props;
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper =
+            new com.fasterxml.jackson.databind.ObjectMapper();
 
     public SalesAgentService(LlmClient llm, AgentManifestService manifest, SystemPromptBuilder prompts,
                              ToolExecutor tools, ConversationRepository conversations,
@@ -91,7 +94,11 @@ public class SalesAgentService {
 
         List<LlmMessage> history = rebuildHistory(conv.getId());
         List<ToolCallView> executed = new ArrayList<>();
-        List<LaptopSummaryDto> candidates = new ArrayList<>();
+        // Search results and deliberate presentations are kept apart: if the agent
+        // chose what to show, that choice is what the customer sees. Concatenating
+        // both means six raw hits plus the two it actually recommended.
+        List<PresentedProductDto> searchResults = new ArrayList<>();
+        List<PresentedProductDto> presented = new ArrayList<>();
         String reply = null;
 
         for (int iteration = 0; iteration < props.getMaxToolIterations(); iteration++) {
@@ -117,7 +124,12 @@ public class SalesAgentService {
                 int latency = (int) (System.currentTimeMillis() - startedAt);
 
                 conv.setToolCallsTotal(conv.getToolCallsTotal() + 1);
-                candidates.addAll(applyStateEffects(conv, call.name(), outcome));
+                List<PresentedProductDto> fromTool = applyStateEffects(conv, call.name(), outcome);
+                if ("present_products".equals(call.name())) {
+                    presented.addAll(fromTool);
+                } else {
+                    searchResults.addAll(fromTool);
+                }
 
                 persist(conv, ++seq, MessageRole.TOOL, null, call.name(),
                         call.arguments(), outcome.payload(), outcome.ok(), latency,
@@ -138,7 +150,9 @@ public class SalesAgentService {
                     conv.getId(), props.getMaxToolIterations());
         }
 
-        if (candidates.isEmpty() && reply.contains("?")
+        List<PresentedProductDto> products = presented.isEmpty() ? searchResults : presented;
+
+        if (products.isEmpty() && reply.contains("?")
                 && (conv.getCandidateIds() == null || conv.getCandidateIds().isEmpty())) {
             conv.setQuestionsAsked(conv.getQuestionsAsked() + 1);
         }
@@ -147,7 +161,7 @@ public class SalesAgentService {
         conversations.save(conv);
 
         return new ChatResponse(conv.getId(), reply, conv.getStage(), conv.identityKey() != null,
-                executed, candidates,
+                executed, products,
                 conv.getSelectedLaptop() == null ? null : conv.getSelectedLaptop().getId(),
                 conv.getDiscountOffer() == null ? null : conv.getDiscountOffer().getId(),
                 conv.getOrder() == null ? null : conv.getOrder().getId());
@@ -161,12 +175,12 @@ public class SalesAgentService {
      * actually advances the stage.
      */
     @SuppressWarnings("unchecked")
-    private List<LaptopSummaryDto> applyStateEffects(Conversation conv, String tool, ToolOutcome outcome) {
+    private List<PresentedProductDto> applyStateEffects(Conversation conv, String tool, ToolOutcome outcome) {
         if (!outcome.ok()) {
             return List.of();
         }
         Object data = outcome.payload().get("data");
-        List<LaptopSummaryDto> selected = new ArrayList<>();
+        List<PresentedProductDto> selected = new ArrayList<>();
 
         switch (tool) {
             case "search_laptops", "search_catalog" -> {
@@ -177,7 +191,9 @@ public class SalesAgentService {
                     if (!found.isEmpty()) {
                         conv.setCandidateIds(found.stream().map(l -> l.id().toString()).toList());
                         advance(conv, SalesStage.PRODUCT_SEARCH);
-                        return found;
+                        // Search results carry no reason — the agent has not chosen yet.
+                        return found.stream()
+                                .map(l -> new PresentedProductDto(l, null)).toList();
                     }
                     conv.setCandidateIds(List.of());
                 }
@@ -187,10 +203,23 @@ public class SalesAgentService {
                     laptops.findById(dto.id())
                             .ifPresent(l -> {
                                 conv.setSelectedLaptop(l);
-                                selected.add(LaptopSummaryDto.from(l));
+                                selected.add(new PresentedProductDto(LaptopSummaryDto.from(l), null));
                             });
                     advance(conv, SalesStage.PRODUCT_PRESENTATION);
                     return selected;
+                }
+            }
+            case "present_products" -> {
+                if (data instanceof List<?> list) {
+                    List<PresentedProductDto> shown = list.stream()
+                            .filter(PresentedProductDto.class::isInstance)
+                            .map(PresentedProductDto.class::cast).toList();
+                    if (!shown.isEmpty()) {
+                        conv.setCandidateIds(shown.stream()
+                                .map(p -> p.product().id().toString()).toList());
+                        advance(conv, SalesStage.PRODUCT_PRESENTATION);
+                        return shown;
+                    }
                 }
             }
             case "compare_laptops" -> advance(conv, SalesStage.PRODUCT_PRESENTATION);
@@ -246,9 +275,25 @@ public class SalesAgentService {
         advance(conv, SalesStage.OBJECTION_HANDLING);
     }
 
+    /**
+     * Rebuilds the conversation for the model, compacting old tool results.
+     *
+     * A search result is several kilobytes of specs. Replayed verbatim on every
+     * later turn, a four-turn conversation sends the same laptop specs four
+     * times and the request outgrows a free tier's per-minute token cap — which
+     * is a real 429, not a hypothetical. Recent results stay whole because the
+     * agent is actively reasoning about them; older ones keep only what it
+     * still needs, which is the id, the name and the price.
+     */
     private List<LlmMessage> rebuildHistory(UUID conversationId) {
         List<LlmMessage> history = new ArrayList<>();
-        for (ConversationMessage m : messages.findByConversationIdOrderBySeqAsc(conversationId)) {
+        List<ConversationMessage> all = messages.findByConversationIdOrderBySeqAsc(conversationId);
+
+        long toolMessages = all.stream().filter(m -> m.getRole() == MessageRole.TOOL).count();
+        long keepWholeAfter = toolMessages - props.getFullToolResultsInHistory();
+        long seenTools = 0;
+
+        for (ConversationMessage m : all) {
             switch (m.getRole()) {
                 case USER -> history.add(LlmMessage.user(m.getContent()));
                 case ASSISTANT -> history.add(LlmMessage.model(m.getContent()));
@@ -256,13 +301,17 @@ public class SalesAgentService {
                     // One stored row reconstructs the pair the provider expects:
                     // the model's call turn, then the result turn — including any
                     // opaque signature, without which Gemini 3 rejects the request.
+                    seenTools++;
                     String toolCallId = storedMeta(m, "toolCallId");
+                    Map<String, Object> result = m.getToolResult() == null ? Map.of() : m.getToolResult();
+                    if (seenTools <= keepWholeAfter) {
+                        result = compact(result);
+                    }
                     history.add(LlmMessage.modelToolCalls(List.of(
                             new LlmToolCall(toolCallId, m.getToolName(),
                                     m.getToolArgs() == null ? Map.of() : m.getToolArgs(),
                                     storedMeta(m, "signature")))));
-                    history.add(LlmMessage.toolResult(toolCallId, m.getToolName(),
-                            m.getToolResult() == null ? Map.of() : m.getToolResult()));
+                    history.add(LlmMessage.toolResult(toolCallId, m.getToolName(), result));
                 }
             }
         }
@@ -289,6 +338,42 @@ public class SalesAgentService {
         if (m.getToolMeta() == null) return null;
         Object value = m.getToolMeta().get(key);
         return value == null ? null : String.valueOf(value);
+    }
+
+    /** Keys worth keeping when an older result is trimmed — enough to keep talking about it. */
+    private static final List<String> KEEP = List.of(
+            "id", "modelName", "price", "basePrice", "stockQty", "reason",
+            "approvedPct", "offerId", "orderId", "finalPrice", "status", "identityKey");
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> compact(Map<String, Object> result) {
+        Object data = result.get("data");
+        Map<String, Object> out = new LinkedHashMap<>(result);
+        if (data instanceof List<?> list) {
+            out.put("data", list.stream().map(this::compactItem).toList());
+        } else if (data != null) {
+            out.put("data", compactItem(data));
+        }
+        return out;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object compactItem(Object item) {
+        Map<String, Object> asMap;
+        if (item instanceof Map<?, ?> m) {
+            asMap = (Map<String, Object>) m;
+        } else {
+            asMap = mapper.convertValue(item, Map.class);
+        }
+        Map<String, Object> kept = new LinkedHashMap<>();
+        asMap.forEach((k, v) -> {
+            if (KEEP.contains(k)) {
+                kept.put(k, v);
+            } else if ("product".equals(k)) {
+                kept.put(k, compactItem(v));
+            }
+        });
+        return kept.isEmpty() ? asMap : kept;
     }
 
     private void persist(Conversation conv, int seq, MessageRole role, String content, String toolName,

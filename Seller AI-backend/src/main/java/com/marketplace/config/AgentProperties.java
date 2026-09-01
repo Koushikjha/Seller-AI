@@ -11,6 +11,14 @@ public class AgentProperties {
     /** Hard stop on tool calls inside one user turn — a runaway loop guard. */
     private int maxToolIterations = 6;
 
+    /**
+     * How many of the most recent tool results are replayed in full when the
+     * conversation history is rebuilt. Older ones are compacted to ids, names
+     * and prices — enough for the agent to keep referring to them, without
+     * resending several kilobytes of specs on every subsequent turn.
+     */
+    private int fullToolResultsInHistory = 2;
+
     private Gemini gemini = new Gemini();
     private Groq groq = new Groq();
 
@@ -18,6 +26,8 @@ public class AgentProperties {
     public void setProvider(String v) { this.provider = v; }
     public int getMaxToolIterations() { return maxToolIterations; }
     public void setMaxToolIterations(int v) { this.maxToolIterations = v; }
+    public int getFullToolResultsInHistory() { return fullToolResultsInHistory; }
+    public void setFullToolResultsInHistory(int v) { this.fullToolResultsInHistory = v; }
     public Gemini getGemini() { return gemini; }
     public void setGemini(Gemini v) { this.gemini = v; }
     public Groq getGroq() { return groq; }

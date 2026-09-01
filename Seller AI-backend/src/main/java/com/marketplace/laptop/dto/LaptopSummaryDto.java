@@ -3,6 +3,7 @@ package com.marketplace.laptop.dto;
 import com.marketplace.laptop.entity.Laptop;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -41,7 +42,8 @@ public record LaptopSummaryDto(
         Integer refreshRateHz,
         BigDecimal weightKg,
         Integer batteryHours,
-        String os
+        String os,
+        List<String> images
 ) {
     public static LaptopSummaryDto from(Laptop l) {
         return new LaptopSummaryDto(
@@ -65,6 +67,7 @@ public record LaptopSummaryDto(
                 l.getRefreshRateHz(),
                 l.getWeightKg(),
                 l.getBatteryHours(),
-                l.getOs());
+                l.getOs(),
+                l.getImages() == null ? List.of() : l.getImages());
     }
 }
