@@ -104,7 +104,7 @@ public class SalesAgentService {
         for (int iteration = 0; iteration < props.getMaxToolIterations(); iteration++) {
             LlmResponse response;
             try {
-                response = llm.complete(prompts.build(conv), history, manifest.tools());
+                response = llm.complete(prompts.build(conv), history, manifest.toolsFor(conv));
             } catch (LlmException e) {
                 log.error("LLM call failed on conversation {}", conv.getId(), e);
                 reply = "Sorry — I lost my train of thought there. Could you say that again?";

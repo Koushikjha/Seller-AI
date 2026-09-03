@@ -21,7 +21,7 @@ BASE="${BASE:-http://localhost:8080}"
 # Seconds to wait between turns. Free LLM tiers cap tokens per minute and this
 # suite fires ~15 requests; without pacing you measure the rate limiter rather
 # than the agent. PACE=0 for a local model or a paid key.
-PACE="${PACE:-12}"
+PACE="${PACE:-20}"
 OUT="${OUT:-eval/transcripts}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 RUN="$OUT/$STAMP"

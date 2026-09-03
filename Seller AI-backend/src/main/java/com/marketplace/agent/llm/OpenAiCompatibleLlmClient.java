@@ -13,7 +13,14 @@ import java.time.Duration;
 import java.util.*;
 
 /**
- * Groq, via its OpenAI-compatible chat/completions API.
+ * Any provider that speaks OpenAI's /chat/completions — Groq, Cerebras, and
+ * whatever the next free tier turns out to be.
+ *
+ * This was GroqLlmClient until we pointed it at Cerebras by changing one URL and
+ * it worked unmodified. That is the whole argument for the rename: the class was
+ * never Groq-specific, it was named after the first provider that used it, and a
+ * name that describes the protocol instead of the vendor makes the next provider
+ * a config block rather than a copy of this file.
  *
  * Three differences from Gemini that the adapter absorbs so nothing above this
  * class has to care:
@@ -24,16 +31,25 @@ import java.util.*;
  *      it back as {@code tool_call_id}. Gemini pairs by function name instead.
  *   3. No thought signatures, and the schema is full JSON Schema — so unlike
  *      Gemini, the tool definitions go across untouched.
+ *
+ * Tool-calling support is per-model, not per-provider. If search_laptops never
+ * fires on the first message, the model does not do tools and no amount of
+ * prompt work will change that — try another model id before debugging further.
  */
-public class GroqLlmClient implements LlmClient {
+public class OpenAiCompatibleLlmClient implements LlmClient {
 
-    private static final Logger log = LoggerFactory.getLogger(GroqLlmClient.class);
+    private static final Logger log = LoggerFactory.getLogger(OpenAiCompatibleLlmClient.class);
 
-    private final AgentProperties.Groq cfg;
+    /** "groq", "cerebras" — used in logs and errors so a failure names its provider. */
+    private final String provider;
+    private final AgentProperties.OpenAiCompatible cfg;
     private final ObjectMapper mapper;
     private final RestClient http;
 
-    public GroqLlmClient(AgentProperties.Groq cfg, ObjectMapper mapper) {
+    public OpenAiCompatibleLlmClient(String provider,
+                                     AgentProperties.OpenAiCompatible cfg,
+                                     ObjectMapper mapper) {
+        this.provider = provider;
         this.cfg = cfg;
         this.mapper = mapper;
         var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
@@ -44,7 +60,7 @@ public class GroqLlmClient implements LlmClient {
 
     @Override
     public String name() {
-        return "groq:" + cfg.getModel();
+        return provider + ":" + cfg.getModel();
     }
 
     @Override
@@ -64,7 +80,7 @@ public class GroqLlmClient implements LlmClient {
 
         JsonNode response;
         try {
-            response = LlmRetry.execute("Groq", log, () -> http.post()
+            response = LlmRetry.execute(provider, log, () -> http.post()
                     .uri(cfg.getBaseUrl() + "/chat/completions")
                     .header("Authorization", "Bearer " + cfg.getApiKey())
                     .contentType(MediaType.APPLICATION_JSON)
@@ -74,7 +90,7 @@ public class GroqLlmClient implements LlmClient {
         } catch (LlmException e) {
             throw e;
         } catch (Exception e) {
-            throw new LlmException("Groq call failed: " + e.getMessage(), e);
+            throw new LlmException(provider + " call failed: " + e.getMessage(), e);
         }
 
         return parse(response);
@@ -128,14 +144,14 @@ public class GroqLlmClient implements LlmClient {
 
     private LlmResponse parse(JsonNode response) {
         if (response == null) {
-            throw new LlmException("Groq returned an empty body");
+            throw new LlmException(provider + " returned an empty body");
         }
         if (response.has("error")) {
-            throw new LlmException("Groq error: " + response.get("error").toString());
+            throw new LlmException(provider + " error: " + response.get("error").toString());
         }
         JsonNode choices = response.path("choices");
         if (!choices.isArray() || choices.isEmpty()) {
-            throw new LlmException("Groq returned no choices");
+            throw new LlmException(provider + " returned no choices");
         }
 
         JsonNode message = choices.get(0).path("message");
@@ -149,9 +165,9 @@ public class GroqLlmClient implements LlmClient {
                         tc.path("id").asText(null),
                         fn.path("name").asText(),
                         readArguments(fn.path("arguments")),
-                        null));   // Groq has no thought signatures
+                        null));   // no thought signatures on this protocol
             }
-            log.debug("Groq requested {} tool call(s)", calls.size());
+            log.debug("{} requested {} tool call(s)", provider, calls.size());
             return LlmResponse.tools(calls);
         }
 
@@ -171,7 +187,7 @@ public class GroqLlmClient implements LlmClient {
             String raw = arguments.asText("");
             return raw.isBlank() ? Map.of() : mapper.readValue(raw, Map.class);
         } catch (Exception e) {
-            log.warn("Groq returned unparseable tool arguments: {}", arguments, e);
+            log.warn("{} returned unparseable tool arguments: {}", provider, arguments, e);
             return Map.of();
         }
     }
@@ -180,7 +196,7 @@ public class GroqLlmClient implements LlmClient {
         try {
             return mapper.writeValueAsString(value == null ? Map.of() : value);
         } catch (Exception e) {
-            throw new LlmException("Could not serialise payload for Groq", e);
+            throw new LlmException("Could not serialise payload for " + provider, e);
         }
     }
 }

@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "marketplace.agent")
 public class AgentProperties {
 
-    /** 'gemini', 'groq', or 'scripted' for the deterministic offline fake. */
+    /** 'gemini', 'groq', 'cerebras', or 'scripted' for the deterministic offline fake. */
     private String provider = "scripted";
 
     /** Hard stop on tool calls inside one user turn — a runaway loop guard. */
@@ -21,6 +21,7 @@ public class AgentProperties {
 
     private Gemini gemini = new Gemini();
     private Groq groq = new Groq();
+    private Cerebras cerebras = new Cerebras();
 
     public String getProvider() { return provider; }
     public void setProvider(String v) { this.provider = v; }
@@ -32,6 +33,8 @@ public class AgentProperties {
     public void setGemini(Gemini v) { this.gemini = v; }
     public Groq getGroq() { return groq; }
     public void setGroq(Groq v) { this.groq = v; }
+    public Cerebras getCerebras() { return cerebras; }
+    public void setCerebras(Cerebras v) { this.cerebras = v; }
 
     public static class Gemini {
         private String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
@@ -52,9 +55,18 @@ public class AgentProperties {
         public void setTimeoutSeconds(int v) { this.timeoutSeconds = v; }
     }
 
-    public static class Groq {
-        private String baseUrl = "https://api.groq.com/openai/v1";
-        private String model = "llama-3.3-70b-versatile";
+    /**
+     * Settings for any provider that speaks OpenAI's /chat/completions.
+     *
+     * Groq and Cerebras differ by base URL and model id and by nothing else on
+     * the wire, which we established the hard way by pointing the Groq client at
+     * Cerebras and watching it work. Two subclasses that supply their own
+     * defaults, one client, no duplicated protocol code — and a fourth provider
+     * of this kind is a config block rather than a class.
+     */
+    public static class OpenAiCompatible {
+        private String baseUrl;
+        private String model;
         private String apiKey = "";
         private double temperature = 0.7;
         private int timeoutSeconds = 45;
@@ -69,5 +81,26 @@ public class AgentProperties {
         public void setTemperature(double v) { this.temperature = v; }
         public int getTimeoutSeconds() { return timeoutSeconds; }
         public void setTimeoutSeconds(int v) { this.timeoutSeconds = v; }
+    }
+
+    public static class Groq extends OpenAiCompatible {
+        public Groq() {
+            setBaseUrl("https://api.groq.com/openai/v1");
+            setModel("llama-3.3-70b-versatile");
+        }
+    }
+
+    /**
+     * Cerebras. Note the model ids carry NO vendor prefix here: the model that
+     * Groq calls {@code openai/gpt-oss-120b} is plain {@code gpt-oss-120b} on
+     * Cerebras. Confirm against your own key with
+     * {@code GET https://api.cerebras.ai/v1/models} rather than the docs —
+     * published model names on both providers have gone stale under us before.
+     */
+    public static class Cerebras extends OpenAiCompatible {
+        public Cerebras() {
+            setBaseUrl("https://api.cerebras.ai/v1");
+            setModel("gpt-oss-120b");
+        }
     }
 }

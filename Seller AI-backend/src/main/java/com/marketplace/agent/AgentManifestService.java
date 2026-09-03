@@ -1,5 +1,6 @@
 package com.marketplace.agent;
 
+import com.marketplace.agent.state.Conversation;
 import com.marketplace.catalog.core.CatalogRegistry;
 import com.marketplace.catalog.repository.BrandRepository;
 import com.marketplace.catalog.repository.SubBrandRepository;
@@ -37,6 +38,8 @@ public class AgentManifestService {
         this.subBrands = subBrands;
         this.props = props;
     }
+
+
 
     // ------------------------------------------------------------------
     // live vocabulary
@@ -300,4 +303,62 @@ public class AgentManifestService {
         m.put("tools", tools());
         return m;
     }
+
+    // ------------------------------------------------------------------
+    // stage gating
+    // ------------------------------------------------------------------
+
+    /** Available from the first message: everything needed to find and show a machine. */
+    private static final Set<String> DISCOVERY = Set.of(
+            "search_laptops", "search_catalog", "get_laptop_details",
+            "present_products", "compare_laptops", "get_product_line_info");
+
+    /** Unlocked once a search has returned something to negotiate over. */
+    private static final Set<String> NEGOTIATION = Set.of(
+            "verify_identity", "get_discount_limit", "request_discount", "check_discount_offer");
+
+    /** Unlocked only when there is a verified customer and a chosen machine. */
+    private static final Set<String> CLOSING = Set.of(
+            "create_order", "create_payment_link", "get_order_status");
+
+    /**
+     * The tools that are legal right now, rather than all thirteen every time.
+     *
+     * Two reasons, and the second is the one that matters.
+     *
+     * Cost: the full manifest serialises to roughly 2,000 tokens and was being
+     * resent on every call — including each iteration of the tool loop. On a free
+     * tier capped at 8,000 tokens per minute that is most of the budget spent
+     * describing tools the agent cannot use yet, which is what a 429 mid-demo
+     * actually is.
+     *
+     * Safety: an agent that cannot see create_order before an identity is
+     * verified cannot attempt one. ToolExecutor already refuses it — this is the
+     * second lock, not the first, and it removes the temptation rather than
+     * punishing it. Same reasoning as leaving maxDiscountPct out of the summary
+     * DTO: a capability the model never sees is one it can never talk itself
+     * into.
+     *
+     * Gates open, never close. A conversation that reaches CLOSING keeps its
+     * discovery tools, because "actually, show me something cheaper" is a normal
+     * thing for a customer to say at the till.
+     */
+    public List<ToolDefinition> toolsFor(Conversation conv) {
+        Set<String> allowed = new HashSet<>(DISCOVERY);
+
+        boolean hasCandidates = conv.getCandidateIds() != null && !conv.getCandidateIds().isEmpty();
+        if (hasCandidates || conv.getSelectedLaptop() != null || conv.identityKey() != null) {
+            allowed.addAll(NEGOTIATION);
+        }
+        // Identity is the real gate, and the only one the backend itself enforces.
+        // Requiring a selected laptop too would be tidier and would also break the
+        // close: create_order takes a laptopId, and an agent that goes straight
+        // from a search to the sale never sets selectedLaptop.
+        if (conv.identityKey() != null) {
+            allowed.addAll(CLOSING);
+        }
+
+        return tools().stream().filter(t -> allowed.contains(t.name())).toList();
+    }
+
 }

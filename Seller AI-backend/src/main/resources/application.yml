@@ -1,6 +1,8 @@
 spring:
   application:
     name: marketplace-backend
+  config:
+    import: optional:application-secrets.yml
 
   datasource:
     # connectionTimeZone=UTC matters more here than it did on Postgres:
@@ -34,6 +36,7 @@ spring:
 
   jackson:
     default-property-inclusion: non_null
+
 
 server:
   port: ${PORT:8080}
@@ -87,7 +90,7 @@ marketplace:
     # How many recent tool results are replayed in full. Older ones are trimmed
     # to id/name/price so a long conversation does not resend kilobytes of specs
     # on every turn — which is what blows a free tier's per-minute token cap.
-    full-tool-results-in-history: 2
+    full-tool-results-in-history: 1
     gemini:
       model: ${GEMINI_MODEL:gemini-3.6-flash}
       api-key: ${GEMINI_API_KEY:}
@@ -98,6 +101,13 @@ marketplace:
       # model names go stale, as gemini-2.5-flash taught us.
       model: ${GROQ_MODEL}
       api-key: ${GROQ_API_KEY}
+      temperature: 0.3
+      timeout-seconds: 45
+
+    cerebras:
+      base-url: https://api.cerebras.ai/v1
+      model: ${CEREBRAS_MODEL}
+      api-key: ${CEREBRAS_API_KEY}
       temperature: 0.7
       timeout-seconds: 45
 

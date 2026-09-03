@@ -7,6 +7,18 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Picks the model behind the sales agent.
+ *
+ * Four providers, two implementations: Gemini has its own protocol, and Groq and
+ * Cerebras share one because they are both OpenAI-compatible and differ only by
+ * base URL and model id. Adding a fifth of that kind means a config block, not a
+ * class.
+ *
+ * Nothing above this bean knows which one it got. That is the point — the sales
+ * logic, the tool guarantees and the audit all live in the backend, so swapping
+ * the model is an environment variable rather than a rewrite.
+ */
 @Configuration
 public class LlmClientConfig {
 
@@ -14,22 +26,34 @@ public class LlmClientConfig {
 
     @Bean
     LlmClient llmClient(AgentProperties props, ObjectMapper mapper) {
-        if ("groq".equalsIgnoreCase(props.getProvider())) {
-            require(props.getGroq().getApiKey(), "groq", "GROQ_API_KEY");
-            log.info("Sales agent using Groq-compatible endpoint {} model {} ({})",
-                    props.getGroq().getBaseUrl(), props.getGroq().getModel(),
-                    fingerprint(props.getGroq().getApiKey()));
-            return new GroqLlmClient(props.getGroq(), mapper);
-        }
-        if ("gemini".equalsIgnoreCase(props.getProvider())) {
-            require(props.getGemini().getApiKey(), "gemini", "GEMINI_API_KEY");
-            log.info("Sales agent using Gemini endpoint {} model {} ({})",
-                    props.getGemini().getBaseUrl(), props.getGemini().getModel(),
-                    fingerprint(props.getGemini().getApiKey()));
-            return new GeminiLlmClient(props.getGemini(), mapper);
-        }
-        log.info("Sales agent using the scripted (offline) LLM client");
-        return new ScriptedLlmClient();
+        String provider = props.getProvider() == null ? "" : props.getProvider().trim().toLowerCase();
+
+        return switch (provider) {
+            case "groq"     -> openAiCompatible("groq", props.getGroq(), "GROQ_API_KEY", mapper);
+            case "cerebras" -> openAiCompatible("cerebras", props.getCerebras(), "CEREBRAS_API_KEY", mapper);
+            case "gemini"   -> {
+                require(props.getGemini().getApiKey(), "gemini", "GEMINI_API_KEY");
+                log.info("Sales agent using Gemini endpoint {} model {} ({})",
+                        props.getGemini().getBaseUrl(), props.getGemini().getModel(),
+                        fingerprint(props.getGemini().getApiKey()));
+                yield new GeminiLlmClient(props.getGemini(), mapper);
+            }
+            case "", "scripted" -> {
+                log.info("Sales agent using the scripted (offline) LLM client");
+                yield new ScriptedLlmClient();
+            }
+            default -> throw new IllegalStateException(
+                    "Unknown marketplace.agent.provider '" + props.getProvider()
+                    + "'. Expected one of: scripted, gemini, groq, cerebras.");
+        };
+    }
+
+    private LlmClient openAiCompatible(String provider, AgentProperties.OpenAiCompatible cfg,
+                                       String envVar, ObjectMapper mapper) {
+        require(cfg.getApiKey(), provider, envVar);
+        log.info("Sales agent using {} endpoint {} model {} ({})",
+                provider, cfg.getBaseUrl(), cfg.getModel(), fingerprint(cfg.getApiKey()));
+        return new OpenAiCompatibleLlmClient(provider, cfg, mapper);
     }
 
     private static boolean isBlank(String s) {
@@ -49,9 +73,9 @@ public class LlmClientConfig {
         if (isBlank(key)) {
             throw new IllegalStateException(
                     "marketplace.agent.provider=" + provider + " but no API key is set. "
-                            + "Set " + envVar + " in the environment this JVM was started from, "
-                            + "or set marketplace." + provider + ".api-key. "
-                            + "(To run offline on purpose, use AGENT_PROVIDER=scripted.)");
+                    + "Set " + envVar + " in the environment this JVM was started from, "
+                    + "or set marketplace.agent." + provider + ".api-key. "
+                    + "(To run offline on purpose, use AGENT_PROVIDER=scripted.)");
         }
     }
 
@@ -66,6 +90,6 @@ public class LlmClientConfig {
     private static String fingerprint(String key) {
         if (isBlank(key)) return "no key";
         String head = key.length() <= 10 ? key : key.substring(0, 10);
-        return "key " + head + "\u2026 " + key.length() + " chars";
+        return "key " + head + "… " + key.length() + " chars";
     }
 }
