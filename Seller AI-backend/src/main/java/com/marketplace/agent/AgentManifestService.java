@@ -118,6 +118,22 @@ public class AgentManifestService {
                 ToolDefinition.AUTHORITATIVE));
 
         tools.add(new ToolDefinition(
+                "semantic_search_laptops",
+                "Fuzzy, descriptive search over the same in-stock catalog as search_laptops — use when the " +
+                        "customer describes a need in their own words ('something for outdoor fieldwork with " +
+                        "long battery life') rather than naming spec filters. Returns the same compact summary " +
+                        "shape as search_laptops, ranked by relevance, plus a relevanceScore. Prefer " +
+                        "search_laptops when the customer already gave concrete filters (price, RAM, brand) — " +
+                        "this is for when they haven't.",
+                "GET", "/laptops/semantic-search (internal)",
+                object(props(
+                        p("query", str("The customer's need, in their own words")),
+                        p("limit", integer("Max results, 1-6, default 6"))
+                ), List.of("query")),
+                List.of(),
+                ToolDefinition.AUTHORITATIVE));
+
+        tools.add(new ToolDefinition(
                 "get_laptop_details",
                 "Full specification for one laptop, including whitelisted extra specs. "
                         + "Call before presenting a model in detail or answering a specific spec question.",

@@ -3,6 +3,7 @@ import com.marketplace.laptop.dto.LaptopSummaryDto;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.marketplace.agent.state.Conversation;
+import com.marketplace.agent.rag.SemanticSearchService;
 import com.marketplace.catalog.core.CatalogQuery;
 import com.marketplace.catalog.core.CatalogRegistry;
 import com.marketplace.catalog.core.DeviceType;
@@ -55,12 +56,14 @@ public class ToolExecutor {
     private final DiscountService discounts;
     private final OrderService orders;
     private final WebInfoService webInfo;
+    private final SemanticSearchService semanticSearch;
     private final ObjectMapper mapper;
 
     public ToolExecutor(LaptopSearchService search, LaptopService laptops, LaptopCompareService compare,
                         PresentationService presentation, CatalogRegistry catalog,
                         IdentityService identities, DiscountService discounts,
-                        OrderService orders, WebInfoService webInfo, ObjectMapper mapper) {
+                        OrderService orders, WebInfoService webInfo, SemanticSearchService semanticSearch,
+                        ObjectMapper mapper) {
         this.search = search;
         this.laptops = laptops;
         this.compare = compare;
@@ -70,6 +73,7 @@ public class ToolExecutor {
         this.discounts = discounts;
         this.orders = orders;
         this.webInfo = webInfo;
+        this.semanticSearch = semanticSearch;
         this.mapper = mapper;
     }
 
@@ -78,6 +82,7 @@ public class ToolExecutor {
         try {
             return switch (name) {
                 case "search_laptops"         -> searchLaptops(a);
+                case "semantic_search_laptops" -> semanticSearchLaptops(a);
                 case "get_laptop_details"     -> ToolOutcome.ok(laptops.get(uuid(a, "id")));
                 case "present_products"       -> presentProducts(a);
                 case "compare_laptops"        -> compareLaptops(a);
@@ -125,6 +130,32 @@ public class ToolExecutor {
             return ToolOutcome.ok(found);
         }
         return widenPastBudget(criteria);
+    }
+
+    /**
+     * Fuzzy counterpart to searchLaptops — for when the customer describes a
+     * need in their own words rather than naming spec filters. Same result
+     * shape (LaptopSummaryDto) so present_products doesn't care which path
+     * found the machine.
+     */
+    private ToolOutcome semanticSearchLaptops(Map<String, Object> a) {
+        String query = str(a, "query");
+        if (query == null || query.isBlank()) {
+            return ToolOutcome.error("BAD_ARGUMENTS", "query is required", null);
+        }
+        int k = capLimit(integer(a, "limit"));
+        var matches = semanticSearch.search(query, k);
+        if (matches.isEmpty()) {
+            return ToolOutcome.ok(List.of(),
+                    "No semantic match above the relevance floor — try search_laptops with explicit filters instead.");
+        }
+        List<Map<String, Object>> out = matches.stream()
+                .map(m -> {
+                    Map<String, Object> row = new HashMap<>(asMap(m.laptop()));
+                    row.put("relevanceScore", m.score());
+                    return row;
+                }).toList();
+        return ToolOutcome.ok(out);
     }
 
     /**
